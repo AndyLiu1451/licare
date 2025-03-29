@@ -1,36 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:plant_pet_log/config/router/app_router.dart'; // 稍后创建
+import 'package:plant_pet_log/config/theme/app_theme.dart';
+import 'package:plant_pet_log/services/notification_service.dart'; // 稍后创建
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 移除这里的初始化代码:
+  // final notificationService = NotificationService(ProviderContainer()); // 移除
+  // await notificationService.initialize();                         // 移除
+
+  runApp(
+    const ProviderScope(
+      // ProviderScope 必须在 runApp 内部
+      child: MyApp(),
+    ),
+  );
+
+  // 移除这里的 reschedule 调用:
+  // ProviderScope.containerOf(...) // 移除
 }
 
-class MyApp extends StatelessWidget {
+// 在 MyApp 或某个地方定义一个全局 Key 用于获取 context (如果需要在 main 中调用 reschedule)
+final navigatorKey = GlobalKey<NavigatorState>();
+
+class MyApp extends ConsumerStatefulWidget {
+  // 1. 改为 ConsumerStatefulWidget
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState(); // 2. 创建 State
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  // 3. 创建 State 类
+
+  @override
+  void initState() {
+    super.initState();
+    // 4. 在 initState 中初始化通知服务 (确保只执行一次)
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    // 使用 ref.read 获取服务实例并初始化
+    // read 只获取一次，不会监听变化，适合初始化
+    try {
+      final notificationService = ref.read(notificationServiceProvider);
+      await notificationService.initialize();
+      print('Notification Service Initialized.');
+
+      // 初始化后，重新调度提醒 (确保数据库可用后执行)
+      await notificationService.rescheduleAllActiveReminders();
+      print('Reminders Rescheduled on App Start.');
+    } catch (e) {
+      print('Error initializing notifications or rescheduling: $e');
+      // 可以考虑显示错误提示或记录日志
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    // 监听 GoRouter Provider，需要传入 navigatorKey
+    final goRouter = ref.watch(goRouterProvider(navigatorKey));
+
+    return MaterialApp.router(
+      title: '植宠日志',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme().getTheme(),
+      routerConfig: goRouter, // 使用 routerConfig
     );
   }
 }

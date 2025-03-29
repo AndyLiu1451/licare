@@ -30,11 +30,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  # Drift (数据库ORM)
+  drift: 2.26.0 # 使用最新稳定版
+  sqlite3_flutter_libs: 0.5.0 # 提供不同平台的SQLite库
+  path_provider: 2.0.0 # 获取文件系统路径
+  path: 1.9.1 # 路径操作
+  # Riverpod (状态管理/依赖注入)
+  flutter_riverpod: 2.3.0 # 使用最新稳定版
+  # 其他可能需要的库 (先添加核心的)
+  intl: 0.18.1 # 日期格式化
+  go_router: 14.8.1
+  image_picker: 1.0.0 # 用于图片选择
+  flutter_local_notifications: ^18.0.1
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-
+  cupertino_icons: 1.0.8
+  timezone: ^0.10.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -44,7 +55,10 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: 5.0.0
+  # Drift 代码生成
+  drift_dev: 2.26.0 # 必须与drift版本一致
+  build_runner: 2.4.15 # Dart代码生成工具
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

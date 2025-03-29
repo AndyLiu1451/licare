@@ -28,6 +28,12 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要访问您的相册以选择植物或宠物的照片。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>需要访问您的相机以为植物或宠物拍照。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>（如果使用相机录制视频，可能需要）</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
