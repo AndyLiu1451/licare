@@ -57,52 +57,43 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
   List<SelectableObject> _cachedSelectableObjects = [];
 
   @override
-  @override
   void initState() {
     super.initState();
     _taskNameController = TextEditingController();
     _notesController = TextEditingController();
     _customIntervalController = TextEditingController(text: '1');
 
-    // Set initial loading state to true. It stays true until
-    // all necessary async operations (fetching objects, loading data if editing) complete or fail.
+    // --- Modified Initialization Logic ---
+    // Set initial loading state. It's true until proven otherwise.
     _isLoading = true;
-    _initialDataLoaded = false; // Data is not loaded yet
+    _initialDataLoaded = false;
 
-    // Start the asynchronous process of fetching objects and potentially loading data.
-    // We don't await this here because initState cannot be async.
+    // Asynchronously fetch selectable objects first.
     _fetchSelectableObjectsAndLoadData();
   }
 
-  // Helper function to chain async operations needed for initialization
+  // Helper function to chain async operations in initState
   Future<void> _fetchSelectableObjectsAndLoadData() async {
-    // Ensure we don't proceed if the widget is disposed during async gaps.
-    if (!mounted) return;
-
     try {
-      // 1. Fetch Selectable Objects (required for both add and edit)
-      // Use 'ref.read' as we typically fetch this once during init.
+      // 1. Fetch Selectable Objects
       final objects = await ref.read(selectableObjectsProvider.future);
-      if (!mounted) return; // Check mount status again after await
+      if (!mounted) return; // Check mount status after await
 
-      // Store the fetched objects
       _cachedSelectableObjects = objects;
 
-      // 2. Decide next step based on mode (Add vs Edit)
+      // 2. Decide next step based on mode
       if (widget.isEditing) {
-        // If editing, now proceed to load the specific reminder details.
-        // _loadReminderData will handle setting isLoading = false upon completion or error.
-        await _loadReminderData();
+        // If editing, now load the reminder details
+        await _loadReminderData(); // _loadReminderData will handle setting isLoading = false
       } else {
-        // If adding, we have fetched the objects, and that's all we need.
-        // Mark data as loaded and stop the loading indicator.
+        // If adding, we are ready. Set loading false and mark data as loaded.
         setState(() {
           _isLoading = false;
           _initialDataLoaded = true;
         });
       }
     } catch (error) {
-      // Handle error during fetching selectable objects
+      // Handle error fetching selectable objects
       print("Error fetching selectable objects: $error");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,80 +102,72 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        // Stop loading, but mark as 'loaded' to allow the UI to build,
-        // even if it's just to show an error state or an empty dropdown.
         setState(() {
-          _isLoading = false;
-          _initialDataLoaded = true;
-          _cachedSelectableObjects = []; // Ensure list is empty on error
+          _isLoading = false; // Stop loading indicator
+          _initialDataLoaded =
+              true; // Mark as loaded to allow build, but maybe show error state in UI
+          _cachedSelectableObjects = []; // Ensure list is empty
         });
       }
     }
   }
 
-  // This function is now only called IF editing and AFTER selectable objects are fetched.
   Future<void> _loadReminderData() async {
-    // Basic guards
-    if (!widget.isEditing || widget.reminderId == null) {
-      // This case shouldn't ideally happen with the new initState logic,
-      // but as a safeguard, ensure loading stops.
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-    // _isLoading is already true, set by initState. No need to set it again here.
+    if (!widget.isEditing || widget.reminderId == null || _initialDataLoaded)
+      return; // Prevent re-loading
 
+    // Use watch/read for the reminder details provider
+    // Using read within async initState callback alternative:
     try {
-      final db = ref.read(databaseProvider);
+      final db = ref.read(databaseProvider); // Use read for one-time fetch
       final reminder = await db.getReminder(widget.reminderId!);
+      // final reminder = await ref.read(reminderDetailsProvider(widget.reminderId!).future); // Alternative using provider future
 
-      // Check mount status AGAIN after await before calling setState
-      if (!mounted) return;
-
-      if (reminder != null) {
-        // Successfully loaded reminder, update UI state
+      if (reminder != null && mounted) {
         setState(() {
           _taskNameController.text = reminder.taskName;
           _notesController.text = reminder.notes ?? '';
           _nextDueDate = reminder.nextDueDate;
           _isActive = reminder.isActive;
-          _creationDate = reminder.creationDate;
+          _creationDate =
+              reminder.creationDate; // Preserve original creation date
 
+          // Find the associated object in the cached list
           _selectedObject = _cachedSelectableObjects.firstWhereOrNull(
+            // Use firstWhereOrNull
             (obj) =>
                 obj.id == reminder.objectId && obj.type == reminder.objectType,
+            // No orElse needed here, it returns null automatically if not found
           );
-          // (Optional: handle _selectedObject == null case as before)
+          if (_selectedObject == null && _cachedSelectableObjects.isNotEmpty) {
+            print(
+              "Warning: Associated object for reminder ${reminder.id} not found. It might have been deleted.",
+            );
+            // Optionally set to a default or show a warning
+          }
 
+          // Parse frequency rule
           _parseFrequencyRule(reminder.frequencyRule);
 
-          // Mark initial data as loaded AND set loading to false
-          _initialDataLoaded = true;
+          _initialDataLoaded = true; // Mark data as loaded
           _isLoading = false;
         });
-      } else {
-        // Reminder not found
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('找不到提醒数据'), backgroundColor: Colors.red),
         );
-        context.pop(); // Go back
-        // Also ensure loading stops if we pop
-        setState(() => _isLoading = false);
+        context.pop(); // Go back if reminder not found
       }
     } catch (e) {
-      // Handle error during loading reminder details
       print("Error loading reminder data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('加载提醒数据失败: $e'), backgroundColor: Colors.red),
         );
-        // Decide whether to pop or show error on the screen
-        // context.pop();
-        // Stop loading and mark as 'loaded' to allow build, maybe showing an error message in the form area
+        context.pop();
         setState(() {
           _isLoading = false;
-          _initialDataLoaded =
-              true; // Let the UI build, even if data is incomplete/error state
-        });
+        }); // Ensure loading stops on error
       }
     }
   }

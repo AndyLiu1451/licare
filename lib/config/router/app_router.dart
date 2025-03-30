@@ -124,10 +124,10 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
                     path: 'edit/:id',
                     name: 'editReminder',
                     parentNavigatorKey: rootNavigatorKey, // 使用父导航器
-                    builder:
-                        (context, state) => AddEditReminderScreen(
-                          reminderId: int.parse(state.pathParameters['id']!),
-                        ),
+                    builder: (context, state) {
+                      final reminderId = int.parse(state.pathParameters['id']!);
+                      return AddEditReminderScreen(reminderId: reminderId);
+                    },
                   ),
                 ],
               ),
@@ -141,8 +141,15 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
 
     // 可选: 错误处理等其他配置
     errorBuilder:
-        (context, state) =>
-            Scaffold(body: Center(child: Text('页面未找到: ${state.error}'))),
+        (context, state) => Scaffold(
+          // 添加错误页面方便调试
+          appBar: AppBar(title: const Text('路由错误')),
+          body: Center(
+            child: Text(
+              '页面未找到或路由错误: ${state.error?.message ?? state.uri.toString()}',
+            ),
+          ),
+        ),
     // ... 其他 GoRouter 配置 ...
   );
 });
