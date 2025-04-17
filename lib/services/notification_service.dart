@@ -80,9 +80,10 @@ class NotificationService {
   Future<void> initialize() async {
     // 1. 初始化时区数据库
     tz.initializeTimeZones();
-    // 可选: 设置本地时区 (如果应用需要特定时区逻辑)
-    // tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
-
+    // 2. Set the local location (use a general identifier like 'UTC' or 'Etc/GMT')
+    tz.setLocalLocation(tz.getLocation('UTC')); // Or 'Etc/GMT'
+    
+    
     // 2. Android 初始化设置
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('app_icon'); // 使用你放在 drawable/mipmap 的图标名
@@ -145,13 +146,7 @@ class NotificationService {
   }
 
   // 请求 iOS 权限 (确保或再次请求)
-  Future<void> _requestIOSPermissions() async {
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
-  }
+  Future<void> _requestIOSPermissions() async {}
 
   // --- 回调处理 ---
 

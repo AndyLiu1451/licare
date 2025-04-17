@@ -55,7 +55,7 @@ class AppTheme {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData( // Fix: Changed CardTheme to CardThemeData
         elevation: brightness == Brightness.light ? 1.0 : 2.0, // 深色模式卡片阴影可以明显一点
         margin: const EdgeInsets.symmetric(
           horizontal: 8.0,

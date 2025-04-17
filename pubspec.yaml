@@ -51,7 +51,7 @@ dependencies:
   share_plus: ^7.0.0 # (可选) 分享
   csv: ^5.0.0 # (可选) CSV处理
   share_plus_platform_interface: ^3.2.1
-  file_picker: 6.0.0
+  file_picker: 10.1.2
   shared_preferences: ^2.1.0
   fl_chart: 0.63.0
   rrule: ^0.2.17
