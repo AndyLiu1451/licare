@@ -377,7 +377,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
       child: Column(
         children: [
           GestureDetector(
-            onTap: _pickImage,
+            onTap: _showImageSourceActionSheet,
             child: CircleAvatar(
               radius: 60,
               backgroundColor: Colors.grey[200],
@@ -398,36 +398,102 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
           TextButton.icon(
             icon: const Icon(Icons.image),
             label: Text(_photoPath != null ? '更换照片' : '添加照片'),
-            onPressed: _pickImage,
+            onPressed: _showImageSourceActionSheet,
           ),
         ],
       ),
     );
   }
 
+  // !! 新增: 显示图片来源选择 (底部动作表单)
+  void _showImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          // 防止内容与系统 UI 重叠
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('从相册选择'),
+                onTap: () {
+                  _getImage(ImageSource.gallery);
+                  Navigator.of(context).pop(); // 关闭底部表单
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('拍照'),
+                onTap: () {
+                  _getImage(ImageSource.camera);
+                  Navigator.of(context).pop();
+                },
+              ),
+              // 可选: 添加移除照片选项 (如果已有照片)
+              if (_photoPath != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text(
+                    '移除照片',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _photoPath = null; // 清除照片路径
+                    });
+                    Navigator.of(context).pop();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // 10. 图片选择逻辑
-  Future<void> _pickImage() async {
+  Future<void> _getImage(ImageSource source) async {
+    // <--- 修改点: 接收 source 参数
     final ImagePicker picker = ImagePicker();
+    // 使用传入的 source 调用 pickImage
     final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-    ); // 或 ImageSource.camera
+      source: source,
+      imageQuality: 85, // 轻微压缩
+      maxWidth: 1024, // 限制尺寸
+    );
 
     if (image != null) {
       // 将图片保存到应用目录，防止源文件被删除
       final Directory appDir = await getApplicationDocumentsDirectory();
-      final String fileName = p.basename(image.path);
+      // 创建更独特的文件名
+      final String extension = p.extension(image.path); // 获取原始扩展名
+      final String fileName =
+          '${widget.objectType.name}_${DateTime.now().millisecondsSinceEpoch}$extension';
       final String savedImagePath = p.join(appDir.path, fileName);
 
       try {
+        // 删除旧照片 (如果存在且与新照片不同)
+        if (_photoPath != null && _photoPath != savedImagePath) {
+          final oldFile = File(_photoPath!);
+          if (await oldFile.exists()) {
+            await oldFile.delete();
+            print("Deleted old object photo: $_photoPath");
+          }
+        }
+
         final File imageFile = File(image.path);
         await imageFile.copy(savedImagePath);
+
         if (mounted) {
           setState(() {
             _photoPath = savedImagePath; // 更新状态以显示图片
           });
         }
       } catch (e) {
-        _showErrorSnackBar('保存图片失败: $e');
+        if (mounted) {
+          _showErrorSnackBar('保存图片失败: $e');
+        }
       }
     }
   }
@@ -581,6 +647,13 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             tbl.objectId.equals(widget.objectId!) &
             tbl.objectType.equals(widget.objectType.index),
       )).go();
+      if (_photoPath != null) {
+        final photoFile = File(_photoPath!);
+        if (await photoFile.exists()) {
+          await photoFile.delete();
+          print("Deleted object photo during object deletion: $_photoPath");
+        }
+      }
 
       if (widget.objectType == ObjectType.plant) {
         await db.deletePlant(widget.objectId!);

@@ -63,10 +63,8 @@ class AppDatabase extends _$AppDatabase {
       // --- 测试数据结束 ---
     },
     onUpgrade: (Migrator m, int from, int to) async {
-      // 例如，如果从版本1升级到版本2
-      // if (from == 1) {
-      //   await m.addColumn(logs, logs.someNewColumn);
-      // }
+      print("Running migration from $from to $to"); // Log migration
+      if (from == 1 && to >= 2) {}
     },
   );
 

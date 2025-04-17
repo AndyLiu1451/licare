@@ -54,8 +54,7 @@ class Reminders extends Table {
   IntColumn get objectId => integer()(); // 关联 Plants.id 或 Pets.id
   IntColumn get objectType => intEnum<ObjectType>()(); // 区分是植物还是宠物
   TextColumn get taskName => text().withLength(min: 1, max: 150)();
-  TextColumn get frequencyRule =>
-      text()(); // e.g., 'ONCE', 'DAILY', 'WEEKLY:MON,FRI'
+  TextColumn get frequencyRule => text().nullable()();
   DateTimeColumn get nextDueDate => dateTime()();
   TextColumn get notes => text().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();

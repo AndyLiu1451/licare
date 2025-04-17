@@ -18,23 +18,59 @@ class AppTheme {
         'Selected color must be between 0 and ${_colorThemes.length - 1}',
       );
 
-  ThemeData getTheme() => ThemeData(
-    useMaterial3: true, // 启用 Material 3 风格
-    colorSchemeSeed: _colorThemes[selectedColor],
-    brightness: Brightness.light, // 默认浅色模式
-    // 可以进一步自定义 AppBarTheme, TextTheme 等
-    appBarTheme: const AppBarTheme(
-      centerTitle: true, // 标题居中 (可选)
-      elevation: 2,
-    ),
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      selectedItemColor: _customColor, // 选中项颜色
-      unselectedItemColor: Colors.grey, // 未选中项颜色
-    ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: _customColor,
-      foregroundColor: Colors.white,
-    ),
-    // ... 其他主题定制
-  );
+  // 获取颜色列表供外部使用 (例如设置页)
+  static List<Color> get colorThemes => _colorThemes;
+
+  // 生成 ThemeData 的核心方法
+  ThemeData themeData({required Brightness brightness}) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: _colorThemes[selectedColor],
+      brightness: brightness, // !! 根据传入的亮度生成配色方案
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme, // 使用生成的配色方案
+      brightness: brightness, // 设置整体亮度
+      // --- 可选: 针对不同模式微调组件样式 ---
+      appBarTheme: AppBarTheme(
+        centerTitle: true,
+        elevation: 2,
+        backgroundColor:
+            brightness == Brightness.dark
+                ? colorScheme.surface
+                : colorScheme.primary, // 深色用 surface，浅色用 primary
+        foregroundColor:
+            brightness == Brightness.dark
+                ? colorScheme.onSurface
+                : colorScheme.onPrimary, // 相应的前景色
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        // 可以根据 brightness 调整选中/未选中颜色，但 colorScheme 通常能处理好
+        selectedItemColor: colorScheme.primary,
+        // unselectedItemColor: Colors.grey, // 可以保持不变或微调
+        // backgroundColor: brightness == Brightness.dark ? colorScheme.surfaceVariant : null, // 深色模式下给导航栏一点颜色区分
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
+      cardTheme: CardTheme(
+        elevation: brightness == Brightness.light ? 1.0 : 2.0, // 深色模式卡片阴影可以明显一点
+        margin: const EdgeInsets.symmetric(
+          horizontal: 8.0,
+          vertical: 4.0,
+        ), // 统一卡片边距
+        // shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 可选：圆角卡片
+      ),
+      listTileTheme: ListTileThemeData(
+        // shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 可选：配合卡片圆角
+        // selectedTileColor: colorScheme.primaryContainer.withOpacity(0.5), // 可选：选中项颜色
+      ),
+      // ... 其他组件主题定制 (Switch, Chip, Dialog etc.)
+    );
+  }
+
+  // // (旧方法，可以移除或保留用于简化调用)
+  // ThemeData getTheme() => themeData(brightness: Brightness.light);
 }

@@ -33,7 +33,7 @@ dependencies:
   # Drift (数据库ORM)
   drift: 2.26.0 # 使用最新稳定版
   sqlite3_flutter_libs: 0.5.0 # 提供不同平台的SQLite库
-  path_provider: 2.0.0 # 获取文件系统路径
+  path_provider: ^2.0.14 # 获取文件系统路径
   path: 1.9.1 # 路径操作
   # Riverpod (状态管理/依赖注入)
   flutter_riverpod: 2.3.0 # 使用最新稳定版
@@ -47,6 +47,14 @@ dependencies:
   cupertino_icons: 1.0.8
   timezone: ^0.10.0
   collection: ^1.17.0
+  permission_handler: ^11.0.0
+  share_plus: ^7.0.0 # (可选) 分享
+  csv: ^5.0.0 # (可选) CSV处理
+  share_plus_platform_interface: ^3.2.1
+  file_picker: 6.0.0
+  shared_preferences: ^2.1.0
+  fl_chart: 0.63.0
+  rrule: ^0.2.17
 dev_dependencies:
   flutter_test:
     sdk: flutter

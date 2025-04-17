@@ -1691,9 +1691,9 @@ class $RemindersTable extends Reminders
   late final GeneratedColumn<String> frequencyRule = GeneratedColumn<String>(
     'frequency_rule',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _nextDueDateMeta = const VerificationMeta(
     'nextDueDate',
@@ -1792,8 +1792,6 @@ class $RemindersTable extends Reminders
           _frequencyRuleMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_frequencyRuleMeta);
     }
     if (data.containsKey('next_due_date')) {
       context.handle(
@@ -1859,11 +1857,10 @@ class $RemindersTable extends Reminders
             DriftSqlType.string,
             data['${effectivePrefix}task_name'],
           )!,
-      frequencyRule:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}frequency_rule'],
-          )!,
+      frequencyRule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}frequency_rule'],
+      ),
       nextDueDate:
           attachedDatabase.typeMapping.read(
             DriftSqlType.dateTime,
@@ -1900,7 +1897,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
   final int objectId;
   final ObjectType objectType;
   final String taskName;
-  final String frequencyRule;
+  final String? frequencyRule;
   final DateTime nextDueDate;
   final String? notes;
   final bool isActive;
@@ -1910,7 +1907,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     required this.objectId,
     required this.objectType,
     required this.taskName,
-    required this.frequencyRule,
+    this.frequencyRule,
     required this.nextDueDate,
     this.notes,
     required this.isActive,
@@ -1927,7 +1924,9 @@ class Reminder extends DataClass implements Insertable<Reminder> {
       );
     }
     map['task_name'] = Variable<String>(taskName);
-    map['frequency_rule'] = Variable<String>(frequencyRule);
+    if (!nullToAbsent || frequencyRule != null) {
+      map['frequency_rule'] = Variable<String>(frequencyRule);
+    }
     map['next_due_date'] = Variable<DateTime>(nextDueDate);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -1943,7 +1942,10 @@ class Reminder extends DataClass implements Insertable<Reminder> {
       objectId: Value(objectId),
       objectType: Value(objectType),
       taskName: Value(taskName),
-      frequencyRule: Value(frequencyRule),
+      frequencyRule:
+          frequencyRule == null && nullToAbsent
+              ? const Value.absent()
+              : Value(frequencyRule),
       nextDueDate: Value(nextDueDate),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
@@ -1964,7 +1966,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
         serializer.fromJson<int>(json['objectType']),
       ),
       taskName: serializer.fromJson<String>(json['taskName']),
-      frequencyRule: serializer.fromJson<String>(json['frequencyRule']),
+      frequencyRule: serializer.fromJson<String?>(json['frequencyRule']),
       nextDueDate: serializer.fromJson<DateTime>(json['nextDueDate']),
       notes: serializer.fromJson<String?>(json['notes']),
       isActive: serializer.fromJson<bool>(json['isActive']),
@@ -1981,7 +1983,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
         $RemindersTable.$converterobjectType.toJson(objectType),
       ),
       'taskName': serializer.toJson<String>(taskName),
-      'frequencyRule': serializer.toJson<String>(frequencyRule),
+      'frequencyRule': serializer.toJson<String?>(frequencyRule),
       'nextDueDate': serializer.toJson<DateTime>(nextDueDate),
       'notes': serializer.toJson<String?>(notes),
       'isActive': serializer.toJson<bool>(isActive),
@@ -1994,7 +1996,7 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     int? objectId,
     ObjectType? objectType,
     String? taskName,
-    String? frequencyRule,
+    Value<String?> frequencyRule = const Value.absent(),
     DateTime? nextDueDate,
     Value<String?> notes = const Value.absent(),
     bool? isActive,
@@ -2004,7 +2006,8 @@ class Reminder extends DataClass implements Insertable<Reminder> {
     objectId: objectId ?? this.objectId,
     objectType: objectType ?? this.objectType,
     taskName: taskName ?? this.taskName,
-    frequencyRule: frequencyRule ?? this.frequencyRule,
+    frequencyRule:
+        frequencyRule.present ? frequencyRule.value : this.frequencyRule,
     nextDueDate: nextDueDate ?? this.nextDueDate,
     notes: notes.present ? notes.value : this.notes,
     isActive: isActive ?? this.isActive,
@@ -2080,7 +2083,7 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
   final Value<int> objectId;
   final Value<ObjectType> objectType;
   final Value<String> taskName;
-  final Value<String> frequencyRule;
+  final Value<String?> frequencyRule;
   final Value<DateTime> nextDueDate;
   final Value<String?> notes;
   final Value<bool> isActive;
@@ -2101,7 +2104,7 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
     required int objectId,
     required ObjectType objectType,
     required String taskName,
-    required String frequencyRule,
+    this.frequencyRule = const Value.absent(),
     required DateTime nextDueDate,
     this.notes = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -2109,7 +2112,6 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
   }) : objectId = Value(objectId),
        objectType = Value(objectType),
        taskName = Value(taskName),
-       frequencyRule = Value(frequencyRule),
        nextDueDate = Value(nextDueDate),
        creationDate = Value(creationDate);
   static Insertable<Reminder> custom({
@@ -2141,7 +2143,7 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
     Value<int>? objectId,
     Value<ObjectType>? objectType,
     Value<String>? taskName,
-    Value<String>? frequencyRule,
+    Value<String?>? frequencyRule,
     Value<DateTime>? nextDueDate,
     Value<String?>? notes,
     Value<bool>? isActive,
@@ -3027,7 +3029,7 @@ typedef $$RemindersTableCreateCompanionBuilder =
       required int objectId,
       required ObjectType objectType,
       required String taskName,
-      required String frequencyRule,
+      Value<String?> frequencyRule,
       required DateTime nextDueDate,
       Value<String?> notes,
       Value<bool> isActive,
@@ -3039,7 +3041,7 @@ typedef $$RemindersTableUpdateCompanionBuilder =
       Value<int> objectId,
       Value<ObjectType> objectType,
       Value<String> taskName,
-      Value<String> frequencyRule,
+      Value<String?> frequencyRule,
       Value<DateTime> nextDueDate,
       Value<String?> notes,
       Value<bool> isActive,
@@ -3235,7 +3237,7 @@ class $$RemindersTableTableManager
                 Value<int> objectId = const Value.absent(),
                 Value<ObjectType> objectType = const Value.absent(),
                 Value<String> taskName = const Value.absent(),
-                Value<String> frequencyRule = const Value.absent(),
+                Value<String?> frequencyRule = const Value.absent(),
                 Value<DateTime> nextDueDate = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -3257,7 +3259,7 @@ class $$RemindersTableTableManager
                 required int objectId,
                 required ObjectType objectType,
                 required String taskName,
-                required String frequencyRule,
+                Value<String?> frequencyRule = const Value.absent(),
                 required DateTime nextDueDate,
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart'; // For TimeOfDay etc. (or remove if not 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // For accessing database later if needed for payload
 import 'package:timezone/data/latest_all.dart' as tz; // 时区数据
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz; // 时区功能
 import '../data/local/database/app_database.dart' show Reminder; // 引入 Reminder
 import '../models/enum.dart'; // For ObjectType
@@ -18,6 +19,63 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   NotificationService(this._ref);
+
+  Future<void> showNowNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    print("Attempting to show notification now: ID=$id, Title='$title'");
+
+    // 1. Define Android Notification Details (use the same channel as scheduled ones)
+    const AndroidNotificationDetails
+    androidDetails = AndroidNotificationDetails(
+      'plant_pet_reminders_channel_id', // Use the same Channel ID
+      'Plant & Pet Reminders', // Use the same Channel Name
+      channelDescription:
+          'Notifications for plant and pet care reminders', // Same description
+      importance: Importance.max, // High importance to ensure visibility
+      priority: Priority.high,
+      ticker: 'ticker', // Optional ticker text
+      playSound: true,
+      // sound: RawResourceAndroidNotificationSound('notification_sound'), // Optional custom sound
+      // enableVibration: true,
+      // styleInformation: DefaultStyleInformation(true, true), // Optional style
+    );
+
+    // 2. Define iOS Notification Details
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      // sound: 'notification_sound.aiff', // Optional custom sound
+      presentAlert: true, // Ensure alert is shown
+      presentBadge:
+          true, // Optional: Update badge count (usually requires more logic)
+      presentSound: true, // Ensure sound is played
+    );
+
+    // 3. Combine platform details
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // 4. Show the notification using flutterLocalNotificationsPlugin.show()
+    try {
+      await _flutterLocalNotificationsPlugin.show(
+        id, // Notification ID
+        title, // Notification Title
+        body, // Notification Body
+        platformDetails, // Platform specific details
+        payload: payload, // Optional payload
+      );
+      print(
+        "Notification successfully shown (ID: $id). Check the device/simulator.",
+      );
+    } catch (e) {
+      print("Error showing notification (ID: $id): $e");
+      // Handle error appropriately, maybe show a snackbar
+    }
+  }
 
   Future<void> initialize() async {
     // 1. 初始化时区数据库
@@ -142,95 +200,108 @@ class NotificationService {
 
   // 调度一个提醒通知
   Future<void> scheduleReminderNotification(Reminder reminder) async {
-    if (!reminder.isActive || reminder.nextDueDate.isBefore(DateTime.now())) {
+    // 1. Ensure timezones are initialized
+    try {
+      tz_data.initializeTimeZones();
+    } catch (_) {}
+    final location = tz.local; // Get the local timezone location object
+    final nowLocalTz = tz.TZDateTime.now(location);
+
+    // 2. !! CRITICAL: Convert DB DateTime (assumed UTC) to Local TZDateTime !!
+    //    This is the definitive conversion point.
+    late final tz.TZDateTime scheduledDateTime; // Use late final
+
+    try {
+      // Assume reminder.nextDueDate from DB is DateTime, likely representing UTC epoch seconds
+      final DateTime nextDueUtcFromDb = reminder.nextDueDate;
+      scheduledDateTime = tz.TZDateTime.from(nextDueUtcFromDb, location);
       print(
-        'Reminder ${reminder.id} is inactive or overdue. Notification not scheduled.',
+        "Converted DB DateTime ${nextDueUtcFromDb.toIso8601String()} (isUtc: ${nextDueUtcFromDb.isUtc}) to Local TZDateTime ${scheduledDateTime.toIso8601String()} (Location: ${scheduledDateTime.location.name})",
       );
-      return; // 不为非激活或已过期的提醒调度通知
+    } catch (e) {
+      print(
+        "Error converting reminder.nextDueDate to local TZDateTime: $e. Cannot schedule.",
+      );
+      return; // Stop if conversion fails
     }
 
-    // 1. 定义 Android 通知详情
+    // 3. Check if reminder is active and not already overdue using the converted local time
+    if (!reminder.isActive || scheduledDateTime.isBefore(nowLocalTz)) {
+      print(
+        'Reminder ${reminder.id} is inactive or overdue (Scheduled Local: $scheduledDateTime vs Now Local: $nowLocalTz). Notification not scheduled.',
+      );
+      return;
+    }
+
+    // 4. Define Android Notification Details (Keep as before)
     const AndroidNotificationDetails
     androidDetails = AndroidNotificationDetails(
-      'plant_pet_reminders_channel_id', // Channel ID
-      'Plant & Pet Reminders', // Channel Name
-      channelDescription: 'Notifications for plant and pet care reminders',
-      importance: Importance.max, // 重要性 (影响通知显示方式)
-      priority: Priority.high, // 优先级
-      ticker: 'ticker', // 通知首次出现时的状态栏滚动文字
-      playSound: true, // 播放声音
-      // sound: RawResourceAndroidNotificationSound('notification_sound'), // 自定义声音 (需要放在 android/app/src/main/res/raw)
-      // enableVibration: true,
-      // styleInformation: DefaultStyleInformation(true, true), // 默认样式
-      // TODO: 可以添加按钮 Action
+      'plant_pet_reminders_channel_id', // Channel ID (Keep this consistent)
+      'Plant & Pet Reminders', // Channel Name (User visible in settings)
+      channelDescription:
+          '用于植物和宠物护理提醒的通知', // Channel Description (User visible in settings)
+      importance: Importance.max, // High importance for reminders
+      priority: Priority.high,
+      ticker: '任务提醒', // Optional ticker text
+      playSound: true,
+      // sound: ..., // Optional custom sound
+      // enableVibration: true, // Optional vibration
+      // visibility: NotificationVisibility.public, // Optional lock screen visibility
+      // other properties...
     );
 
-    // 2. 定义 iOS 通知详情
+    // 5. Define iOS Notification Details (Keep as before)
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      // sound: 'notification_sound.aiff', // 自定义声音
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      // threadIdentifier: 'reminder_thread', // Optional: Group notifications
     );
 
-    // 3. 整合平台详情
+    // 6. Consolidate Platform Details (Keep as before)
     const NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
 
-    // 4. 准备通知内容
-    final tz.TZDateTime scheduledDateTime = tz.TZDateTime.from(
-      reminder.nextDueDate, // 使用数据库中的下次执行时间
-      tz.local, // 使用设备的本地时区
-    );
-
-    // 检查计划时间是否在过去 (避免立即触发) - 可能由于时区转换或延迟导致
-    if (scheduledDateTime.isBefore(tz.TZDateTime.now(tz.local))) {
+    // 7. Final check if time is in the past (using the converted local time)
+    if (scheduledDateTime.isBefore(tz.TZDateTime.now(location))) {
       print(
-        'Scheduled time ${scheduledDateTime} is in the past for reminder ${reminder.id}. Skipping schedule.',
+        'Scheduled time ${scheduledDateTime} (in ${location.name}) is in the past just before scheduling reminder ${reminder.id}. Skipping.',
       );
       return;
     }
 
-    // 5. 使用 zonedSchedule 调度通知
-    // 通知 ID 使用 Reminder ID (必须是 32 位整数)
-    final notificationId = reminder.id & 0x7FFFFFFF; // 确保 ID 在 32位整数范围内
-
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      notificationId,
-      reminder.taskName, // 通知标题 (任务名)
-      _getNotificationBody(reminder), // 通知内容 (可以包含对象名)
-      scheduledDateTime,
-      platformDetails,
-      // 定义通知的 Payload，用于点击通知时识别
-      payload: 'reminder:${reminder.id}', // 简单 payload
-      androidScheduleMode:
-          AndroidScheduleMode.exactAllowWhileIdle, // 允许在低功耗模式下精确调度
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime, // iOS 时间解释方式
-      // matchDateTimeComponents: DateTimeComponents.time, // 如果是每天重复的通知，可以匹配时间部分
-    );
-
+    // 8. Schedule the notification using zonedSchedule
+    final notificationId = reminder.id & 0x7FFFFFFF;
     print(
-      'Scheduled notification for reminder ${reminder.id} at $scheduledDateTime (ID: $notificationId)',
+      'Scheduling notification for reminder ${reminder.id} at $scheduledDateTime in timezone ${scheduledDateTime.location.name} (ID: $notificationId)',
     );
 
-    // TODO: 处理重复提醒的调度逻辑
-    // 对于重复提醒，当通知触发后 (或用户标记完成后)，需要根据 frequencyRule 计算下一次时间，
-    // 并再次调用 zonedSchedule 来安排下一次通知。这通常在通知回调或标记完成的逻辑中处理。
-    // flutter_local_notifications 本身对复杂重复规则的支持有限，可能需要自己管理。
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        notificationId,
+        reminder.taskName,
+        _getNotificationBody(reminder),
+        scheduledDateTime, // !! Pass the verified local TZDateTime !!
+        platformDetails,
+        payload: 'reminder:${reminder.id}',
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      print('Notification for reminder ${reminder.id} successfully scheduled.');
+    } catch (e) {
+      print('Error scheduling notification for reminder ${reminder.id}: $e');
+    }
   }
 
-  // (Helper) 获取通知内容，尝试包含对象名
+  // Helper to get notification body (Keep as before)
   String _getNotificationBody(Reminder reminder) {
-    // 这里可以尝试同步或异步获取对象名称，但为了简化，先不加
-    // final objectName = await _ref.read(_objectNameProvider(...));
     if (reminder.notes != null && reminder.notes!.isNotEmpty) {
-      return reminder.notes!; // 如果有备注，优先显示备注
+      return reminder.notes!;
     }
-    // return '该为 [对象名称] 做 ${reminder.taskName} 了'; // 包含对象名的示例
-    return '是时候完成任务 "${reminder.taskName}" 了！'; // 默认内容
+    return '是时候完成任务 "${reminder.taskName}" 了！';
   }
 
   // 取消一个通知

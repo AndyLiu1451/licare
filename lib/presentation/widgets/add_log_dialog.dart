@@ -220,7 +220,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('添加照片 (可选)', style: Theme.of(context).textTheme.labelLarge),
+        Text('添加照片 (可选, 最多5张)', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         Wrap(
           // 使用 Wrap 自动换行显示缩略图和添加按钮
@@ -267,7 +267,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
             // 添加图片按钮 (限制数量，比如最多5张)
             if (_selectedImages.length < 5)
               GestureDetector(
-                onTap: _pickImages,
+                onTap: _showLogImageSourceActionSheet,
                 child: Container(
                   width: 60,
                   height: 60,
@@ -286,6 +286,84 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
         ),
       ],
     );
+  }
+
+  // !! 新增: 显示图片来源选择 (用于日志)
+  void _showLogImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context, // 使用当前的 context
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('从相册选择'),
+                onTap: () {
+                  _addImagesFromSource(ImageSource.gallery);
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('拍照'),
+                onTap: () {
+                  _addImagesFromSource(ImageSource.camera);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 修改图片获取逻辑，使其能处理单个或多个图片
+  Future<void> _addImagesFromSource(ImageSource source) async {
+    // <--- 新的方法
+    final ImagePicker picker = ImagePicker();
+    List<XFile> pickedFiles = [];
+
+    if (source == ImageSource.camera) {
+      // 拍照通常只返回一张图片
+      final XFile? image = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1024,
+      );
+      if (image != null) {
+        pickedFiles.add(image);
+      }
+    } else {
+      // 从相册可以选择多张
+      // 计算还能选几张
+      final remainingSlots = 5 - _selectedImages.length;
+      if (remainingSlots > 0) {
+        pickedFiles = await picker.pickMultiImage(
+          imageQuality: 80,
+          maxWidth: 1024,
+        );
+        // 如果选多了，只取需要的数量
+        if (pickedFiles.length > remainingSlots) {
+          pickedFiles = pickedFiles.sublist(0, remainingSlots);
+        }
+      } else {
+        // 提示用户已达上限
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('最多只能添加5张照片')));
+        }
+        return; // 不再继续
+      }
+    }
+
+    if (pickedFiles.isNotEmpty && mounted) {
+      setState(() {
+        _selectedImages.addAll(pickedFiles);
+      });
+    }
   }
 
   // --- Logic ---
@@ -369,17 +447,19 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
     if (_selectedImages.isEmpty) return;
 
     final Directory appDir = await getApplicationDocumentsDirectory();
-    for (final imageFile in _selectedImages) {
+    for (final imageXFile in _selectedImages) {
+      final String extension = p.extension(imageXFile.path);
+      // 用日志关联的对象ID和时间戳生成文件名
       final String fileName =
-          '${widget.objectId}_${DateTime.now().millisecondsSinceEpoch}_${p.basename(imageFile.path)}'; // 创建唯一文件名
+          'log_${widget.objectId}_${DateTime.now().millisecondsSinceEpoch}_${_savedImagePaths.length}$extension';
       final String savedPath = p.join(appDir.path, fileName);
       try {
-        final File file = File(imageFile.path);
-        await file.copy(savedPath);
+        print('Attempting to save image to: $savedPath');
+        await imageXFile.saveTo(savedPath);
         _savedImagePaths.add(savedPath);
+        print('Successfully saved image: $savedPath');
       } catch (e) {
-        print("Error copying file $fileName: $e");
-        // 可以考虑给用户提示某张图片保存失败
+        print("Error saving file $fileName using saveTo: $e");
       }
     }
   }

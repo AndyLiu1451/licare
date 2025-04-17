@@ -11,6 +11,7 @@ import '../../presentation/screens/details/details_screen.dart';
 import '../../presentation/screens/add_edit/add_edit_object_screen.dart';
 import '../../presentation/screens/add_edit/add_edit_reminder_screen.dart'; // 引入提醒编辑页
 import '../../models/enum.dart'; // 引入枚举
+import '../../presentation/screens/settings/settings_screen.dart';
 
 // 使用 Provider.family 接收 GlobalKey<NavigatorState>
 final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
@@ -133,6 +134,16 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
               ),
             ],
           ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                name: SettingsScreen.routeName, // 使用之前定义的 routeName
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+
           // ... 其他 branches ...
         ],
       ),

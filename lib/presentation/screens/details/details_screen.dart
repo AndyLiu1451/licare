@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // 引入 Riverpod
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart'; // 引入 intl
+import 'package:fl_chart/fl_chart.dart'; // !! 引入 fl_chart !!
+import 'dart:math'; // For min/max calculation
+
 import '../../../data/local/database/app_database.dart'; // 引入数据库类
+// 确保你的枚举文件路径正确
 import '../../../models/enum.dart';
 import '../../../providers/object_providers.dart'; // 引入 Providers
-import '../../widgets/log_list_item.dart'; // !! 稍后创建日志列表项 Widget
-import '../../widgets/add_log_dialog.dart';
+import '../../widgets/log_list_item.dart'; // 引入日志列表项 Widget
+import '../../widgets/add_log_dialog.dart'; // !! 引入 AddLogDialog !!
 
 class DetailsScreen extends ConsumerWidget {
-  // 1. 改为 ConsumerWidget
   final int objectId;
   final ObjectType objectType;
 
@@ -22,39 +25,31 @@ class DetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 2. 添加 WidgetRef ref
     final String titlePrefix = objectType == ObjectType.plant ? '植物' : '宠物';
     final DateFormat dateFormatter = DateFormat('yyyy-MM-dd');
 
-    // 3. 根据 objectType 监听对应的详情 Provider
     final detailsAsyncValue =
         objectType == ObjectType.plant
             ? ref.watch(plantDetailsProvider(objectId))
             : ref.watch(petDetailsProvider(objectId));
 
-    // 4. 监听对应的日志列表 Provider
     final logAsyncValue =
         objectType == ObjectType.plant
             ? ref.watch(plantLogStreamProvider(objectId))
             : ref.watch(petLogStreamProvider(objectId));
 
-    // 5. 监听对应的提醒列表 Provider (可选，也可以在专门的提醒管理区域显示)
-    // final remindersAsyncValue = ref.watch(objectRemindersStreamProvider((objectId: objectId, objectType: objectType)));
-
     return Scaffold(
-      // 6. 使用 AsyncValue.when 处理详情数据的加载状态
       body: detailsAsyncValue.when(
         data: (objectData) {
-          // 数据加载成功，但对象可能已被删除 (null)
           if (objectData == null) {
             return const Center(child: Text('对象不存在或已被删除'));
           }
 
-          // 根据类型确定具体对象 (Plant or Pet)
           String name = '';
           String? nickname;
           String? photoPath;
-          Widget specificDetails; // 用于显示植物或宠物特有的信息
+          Widget specificDetails;
+          Widget? statisticsSection;
 
           if (objectType == ObjectType.plant && objectData is Plant) {
             name = objectData.name;
@@ -74,26 +69,24 @@ class DetailsScreen extends ConsumerWidget {
               objectData,
               dateFormatter,
             );
+            statisticsSection = _buildPetWeightChart(context, ref, objectId);
           } else {
-            return const Center(child: Text('数据类型错误')); // 不应该发生
+            return const Center(child: Text('数据类型错误'));
           }
 
-          // 使用 CustomScrollView 实现带伸缩 AppBar 的效果
           return CustomScrollView(
             slivers: <Widget>[
-              // 7. 伸缩 AppBar
               SliverAppBar(
-                expandedHeight: 250.0, // AppBar 展开的高度
-                floating: false, // 向下滚动时AppBar是否立即出现
-                pinned: true, // AppBar 是否固定在顶部
+                expandedHeight: 250.0,
+                floating: false,
+                pinned: true,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    name, // 在收起时显示名字
+                    name,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16.0,
                       shadows: <Shadow>[
-                        // 给文字加点阴影，防止背景太亮看不清
                         Shadow(
                           offset: Offset(0.0, 1.0),
                           blurRadius: 3.0,
@@ -105,16 +98,13 @@ class DetailsScreen extends ConsumerWidget {
                   background:
                       photoPath != null && File(photoPath).existsSync()
                           ? Image.file(
-                            // 显示对象图片作为背景
                             File(photoPath),
-                            fit: BoxFit.cover, // 图片覆盖整个区域
-                            // 添加一层遮罩让标题更清晰
+                            fit: BoxFit.cover,
                             colorBlendMode: BlendMode.darken,
                             color: Colors.black.withOpacity(0.3),
                           )
                           : Container(
-                            // 如果没有图片，显示占位颜色和图标
-                            color: Theme.of(context).primaryColor,
+                            color: Theme.of(context).colorScheme.primary,
                             child: Icon(
                               objectType == ObjectType.plant
                                   ? Icons.local_florist
@@ -125,7 +115,6 @@ class DetailsScreen extends ConsumerWidget {
                           ),
                 ),
                 actions: [
-                  // 编辑按钮
                   IconButton(
                     icon: const Icon(Icons.edit),
                     tooltip: '编辑',
@@ -145,7 +134,6 @@ class DetailsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              // 8. 对象的基本信息和特定信息
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -153,19 +141,31 @@ class DetailsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (nickname != null && nickname.isNotEmpty)
-                        Text(
-                          nickname,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineSmall?.copyWith(
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey[700],
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            nickname,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineSmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey[700],
+                            ),
                           ),
                         ),
-                      if (nickname != null && nickname.isNotEmpty)
-                        const SizedBox(height: 8),
-                      specificDetails, // 显示植物/宠物特有信息
-                      const Divider(height: 32), // 分隔线
+                      specificDetails,
+                      const Divider(height: 32),
+
+                      if (statisticsSection != null) ...[
+                        Text(
+                          '成长曲线',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        statisticsSection,
+                        const Divider(height: 32),
+                      ],
+
                       Text(
                         '日志记录',
                         style: Theme.of(context).textTheme.titleLarge,
@@ -174,26 +174,22 @@ class DetailsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              // 9. 显示日志列表 (使用 AsyncValue.when 处理加载)
               logAsyncValue.when(
                 data: (logs) {
                   if (logs.isEmpty) {
                     return const SliverToBoxAdapter(
-                      // 如果日志为空，显示提示
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 32.0),
                         child: Center(child: Text('还没有日志记录')),
                       ),
                     );
                   }
-                  // 如果日志不为空，使用 SliverList 显示
                   return SliverList(
                     delegate: SliverChildBuilderDelegate((
                       BuildContext context,
                       int index,
                     ) {
                       final log = logs[index];
-                      // TODO: 创建并使用 LogListItem Widget
                       return LogListItem(logEntry: log);
                     }, childCount: logs.length),
                   );
@@ -212,26 +208,21 @@ class DetailsScreen extends ConsumerWidget {
                       child: Center(child: Text('加载日志失败: $error')),
                     ),
               ),
-              // 添加一些底部空间
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 80), // 确保 FAB 不会遮挡最后一个列表项
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           );
         },
         loading:
             () => const Scaffold(
               body: Center(child: CircularProgressIndicator()),
-            ), // 详情加载中
+            ),
         error:
             (error, stack) =>
-                Scaffold(body: Center(child: Text('加载详情失败: $error'))), // 详情加载失败
+                Scaffold(body: Center(child: Text('加载详情失败: $error'))),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: 实现添加日志条目的功能 (可能弹出对话框或新页面)
-          _showAddLogDialog(context, ref, objectId, objectType); // 调用显示对话框的方法
-          // 或者跳转页面: context.pushNamed('addLog', pathParameters: ...);
+          _showAddLogDialog(context, ref, objectId, objectType);
         },
         tooltip: '添加日志',
         child: const Icon(Icons.note_add),
@@ -241,7 +232,6 @@ class DetailsScreen extends ConsumerWidget {
 
   // --- Helper Widgets ---
 
-  // 10. 构建植物特定信息 Widget
   Widget _buildPlantSpecificDetails(
     BuildContext context,
     Plant plant,
@@ -271,7 +261,6 @@ class DetailsScreen extends ConsumerWidget {
     );
   }
 
-  // 11. 构建宠物特定信息 Widget
   Widget _buildPetSpecificDetails(
     BuildContext context,
     Pet pet,
@@ -323,7 +312,6 @@ class DetailsScreen extends ConsumerWidget {
     );
   }
 
-  // 12. 构建信息行 Widget (用于复用)
   Widget _buildInfoRow(
     BuildContext context,
     IconData icon,
@@ -351,7 +339,214 @@ class DetailsScreen extends ConsumerWidget {
     );
   }
 
-  // 13. 显示添加日志对话框的方法 (稍后实现具体内容)
+  // !! 构建宠物体重图表 Widget !!
+  Widget _buildPetWeightChart(BuildContext context, WidgetRef ref, int petId) {
+    final chartDataAsyncValue = ref.watch(petWeightChartDataProvider(petId));
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      height: 200,
+      child: chartDataAsyncValue.when(
+        data: (spots) {
+          if (spots.length < 2) {
+            return Container(
+              padding: const EdgeInsets.all(16.0),
+              alignment: Alignment.center,
+              child: const Text(
+                '体重记录不足 (需至少2条)，\n无法生成曲线图。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            );
+          }
+
+          final weights = spots.map((spot) => spot.y).toList();
+          final double minY =
+              weights.isEmpty ? 0.0 : weights.reduce(min).toDouble() * 0.9;
+          final double maxY =
+              weights.isEmpty ? 10.0 : weights.reduce(max).toDouble() * 1.1;
+
+          final times = spots.map((spot) => spot.x).toList();
+          final double minX =
+              times.isEmpty
+                  ? DateTime.now().millisecondsSinceEpoch.toDouble()
+                  : times.reduce(min).toDouble();
+          final double maxX =
+              times.isEmpty
+                  ? DateTime.now().millisecondsSinceEpoch.toDouble() + 1
+                  : times.reduce(max).toDouble();
+          final double rangeX = (maxX - minX == 0) ? 1.0 : (maxX - minX);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 16.0, top: 8.0),
+            // !! 修正点: 移除 LineChart 的动画参数 !!
+            child: LineChart(
+              LineChartData(
+                minY: minY,
+                maxY: maxY,
+                minX: minX,
+                maxX: maxX,
+                // 动画参数不在 LineChartData 中
+                // swapAnimationDuration: const Duration(milliseconds: 250),
+                // swapAnimationCurve: Curves.linear,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: true,
+                  horizontalInterval:
+                      (maxY - minY) / 4 > 0 ? (maxY - minY) / 4 : 1,
+                  verticalInterval: rangeX / 4 > 0 ? rangeX / 4 : null,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: theme.dividerColor.withOpacity(0.1),
+                      strokeWidth: 1,
+                    );
+                  },
+                  getDrawingVerticalLine: (value) {
+                    return FlLine(
+                      color: theme.dividerColor.withOpacity(0.1),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: rangeX / 4 > 0 ? rangeX / 4 : null,
+                      getTitlesWidget: (value, meta) {
+                        final dateTime = DateTime.fromMillisecondsSinceEpoch(
+                          value.toInt(),
+                        );
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          space: 8.0,
+                          child: Text(
+                            DateFormat('MM/dd').format(dateTime),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.textTheme.bodySmall?.color,
+                          ),
+                          textAlign: TextAlign.right,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(
+                    color: theme.dividerColor.withOpacity(0.5),
+                    width: 1,
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    // 使用 gradient 替代单一 color，效果更好看
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.secondary,
+                      ], // 使用主题色渐变
+                    ),
+                    // color: theme.colorScheme.primary, // 可以注释掉或移除
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        // 填充区域也用渐变
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.3),
+                          theme.colorScheme.secondary.withOpacity(0.0), // 底部透明
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      // color: theme.colorScheme.primary.withOpacity(0.2), // 注释掉或移除
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: theme.colorScheme.secondaryContainer
+                        .withOpacity(0.9), // 试试 Container 颜色
+                    getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                      return touchedSpots.map((LineBarSpot touchedSpot) {
+                        final textStyle = TextStyle(
+                          color:
+                              theme
+                                  .colorScheme
+                                  .onSecondaryContainer, // 使用 onContainer 颜色
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        );
+                        final dateTime = DateTime.fromMillisecondsSinceEpoch(
+                          touchedSpot.x.toInt(),
+                        );
+                        final dateStr = DateFormat(
+                          'yyyy-MM-dd',
+                        ).format(dateTime);
+                        final weightStr = touchedSpot.y.toStringAsFixed(1);
+                        return LineTooltipItem(
+                          '$dateStr\n$weightStr kg',
+                          textStyle,
+                        );
+                      }).toList();
+                    },
+                  ),
+                  handleBuiltInTouches: true,
+                ),
+              ),
+              // !! 修正点: 移除 LineChart 的动画参数 !!
+              // swapAnimationDuration: const Duration(milliseconds: 250),
+              // swapAnimationCurve: Curves.linear,
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) {
+          print('Error loading chart data: $error\n$stack');
+          return Container(
+            padding: const EdgeInsets.all(16.0),
+            alignment: Alignment.center,
+            child: const Text(
+              '无法加载体重数据。\n请检查体重日志格式是否正确。',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showAddLogDialog(
     BuildContext context,
     WidgetRef ref,
@@ -359,15 +554,11 @@ class DetailsScreen extends ConsumerWidget {
     ObjectType objectType,
   ) {
     showDialog<bool>(
-      // 修改返回类型为 bool?
       context: context,
-      // barrierDismissible: false, // 可以阻止点击外部关闭对话框，强制用户操作
       builder: (BuildContext context) {
-        // 使用我们创建的 AddLogDialog Widget
         return AddLogDialog(objectId: objectId, objectType: objectType);
       },
     ).then((success) {
-      // 对话框关闭后，检查是否成功保存
       if (success == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -375,8 +566,6 @@ class DetailsScreen extends ConsumerWidget {
             duration: Duration(seconds: 2),
           ),
         );
-        // 无需手动刷新列表，因为我们使用的是 StreamProvider，
-        // 数据库更新后会自动触发 UI 更新。
       }
     });
   }
