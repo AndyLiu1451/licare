@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart'; // For TimeOfDay etc. (or remove if not needed directly)
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // For accessing database later if needed for payload
-import 'package:timezone/data/latest_all.dart' as tz; // 时区数据
-import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/data/latest_all.dart' as tz_data; // Renamed to avoid conflict
 import 'package:timezone/timezone.dart' as tz; // 时区功能
 import '../data/local/database/app_database.dart' show Reminder; // 引入 Reminder
 import '../models/enum.dart'; // For ObjectType
-import '../../../providers/database_provider.dart';
+import '../providers/database_provider.dart'; // Corrected import path assumption
 
 // Riverpod Provider for the service instance
 final notificationServiceProvider = Provider<NotificationService>((ref) {
@@ -78,261 +77,265 @@ class NotificationService {
   }
 
   Future<void> initialize() async {
-    // 1. 初始化时区数据库
-    tz.initializeTimeZones();
-    // 2. Set the local location (use a general identifier like 'UTC' or 'Etc/GMT')
-    tz.setLocalLocation(tz.getLocation('UTC')); // Or 'Etc/GMT'
-    
-    
-    // 2. Android 初始化设置
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon'); // 使用你放在 drawable/mipmap 的图标名
+    // 1. Initialize timezone database (needs to happen before using tz.local)
+    tz_data.initializeTimeZones();
+    // 2. !! REMOVED: tz.setLocalLocation(tz.getLocation('UTC')); !!
+    //    Let the timezone package detect the actual local timezone.
 
-    // 3. iOS 初始化设置
+    // 3. Android Initialization Settings
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('app_icon'); // Use your drawable/mipmap icon name
+
+    // 4. iOS Initialization Settings
     final DarwinInitializationSettings
     initializationSettingsIOS = DarwinInitializationSettings(
-      requestAlertPermission: false, // 不在这里请求权限，在 AppDelegate 中请求
+      requestAlertPermission: false, // Permissions requested elsewhere (AppDelegate)
       requestBadgePermission: false,
       requestSoundPermission: false,
-      //onDidReceiveLocalNotification: _onDidReceiveLocalNotification, // 旧版 iOS 回调
+      //onDidReceiveLocalNotification: _onDidReceiveLocalNotification, // Old iOS callback
     );
 
-    // 4. Linux 初始化设置 (如果未来支持桌面)
-    // final LinuxInitializationSettings initializationSettingsLinux =
-    //     LinuxInitializationSettings(defaultActionName: 'Open notification');
-
-    // 5. 整合各平台设置并初始化插件
+    // 5. Consolidate settings and initialize plugin
     final InitializationSettings initializationSettings =
         InitializationSettings(
           android: initializationSettingsAndroid,
           iOS: initializationSettingsIOS,
-          // linux: initializationSettingsLinux,
+          // linux: initializationSettingsLinux, // If supporting Linux
         );
 
     await _flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
-      // 处理通知被点击的回调 (应用在前台、后台或终止状态)
+      // Callback for notification tap (foreground, background, terminated)
       onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
-      // 处理旧版 iOS 应用在前台时收到通知的回调
-      // onDidReceiveBackgroundNotificationResponse: notificationTapBackground, // (这个回调在文档中有时会混淆，优先用onDidReceiveNotificationResponse)
+      // Callback for old iOS foreground notifications
+      // onDidReceiveLocalNotification: _onDidReceiveLocalNotification,
     );
 
-    // 6. 请求 Android 13+ 通知权限
+    // 6. Request Android permissions (Android 13+)
     await _requestAndroidPermissions();
-    // 7. 请求 iOS 通知权限 (虽然在 AppDelegate 请求了，这里可以再检查一下状态)
+    // 7. Request iOS permissions (can re-check status here)
     await _requestIOSPermissions();
   }
 
-  // 请求 Android 权限
+  // Request Android Permissions
   Future<void> _requestAndroidPermissions() async {
-    // 请求通知权限 (Android 13+)
-    final bool? notificationPermissionGranted =
-        await _flutterLocalNotificationsPlugin
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.requestNotificationsPermission(); // 新版用 requestNotificationsPermission
-
-    // 请求精确闹钟权限 (Android 12+) - 根据需要启用
-    // final bool? exactAlarmPermissionGranted = await _flutterLocalNotificationsPlugin
-    //    .resolvePlatformSpecificImplementation<
-    //        AndroidFlutterLocalNotificationsPlugin>()
-    //    ?.requestExactAlarmsPermission();
-
-    print(
-      'Android Notification Permission Granted: $notificationPermissionGranted',
-    );
-    // print('Android Exact Alarm Permission Granted: $exactAlarmPermissionGranted');
+    final plugin = _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (plugin != null) {
+      final bool? granted = await plugin.requestNotificationsPermission();
+      print('Android Notification Permission Granted: $granted');
+      // Optionally request exact alarm permission if needed
+      // final bool? exactAlarmGranted = await plugin.requestExactAlarmsPermission();
+      // print('Android Exact Alarm Permission Granted: $exactAlarmGranted');
+    }
   }
 
-  // 请求 iOS 权限 (确保或再次请求)
-  Future<void> _requestIOSPermissions() async {}
+  // Request iOS Permissions (placeholder, usually done in AppDelegate)
+  Future<void> _requestIOSPermissions() async {
+     // If needed, can use plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>().requestPermissions(...)
+     print("iOS permission request handled in AppDelegate or manually.");
+  }
 
-  // --- 回调处理 ---
+  // --- Callbacks ---
 
-  // 旧版 iOS 应用在前台收到通知的回调
+  // Old iOS foreground notification callback
   void _onDidReceiveLocalNotification(
     int id,
     String? title,
     String? body,
     String? payload,
   ) async {
-    // 在这里可以显示一个对话框或做其他处理
     print(
       'iOS (foreground) received notification: id=$id, title=$title, payload=$payload',
     );
-    // showDialog(...);
+    // Display a dialog or handle as needed
   }
 
-  // 处理通知点击事件的回调
+  // Notification tap callback
   void _onDidReceiveNotificationResponse(
     NotificationResponse notificationResponse,
   ) async {
     final String? payload = notificationResponse.payload;
-    final int? id = notificationResponse.id; // 通知 ID，可以对应 Reminder ID
+    final int? id = notificationResponse.id; // Notification ID (maps to Reminder ID)
     print(
       'Notification tapped: id=$id, payload=$payload, actionId=${notificationResponse.actionId}',
     );
 
-    if (payload != null) {
-      // TODO: 根据 payload 实现导航逻辑
-      // 例如，payload 可以是 "reminder:123" 或 JSON 字符串 {"type": "reminder", "id": 123}
-      // 解析 payload 并使用 GoRouter 导航到对应的详情页或编辑页
-      if (payload.startsWith('reminder:')) {
-        final reminderId = int.tryParse(payload.split(':')[1]);
-        if (reminderId != null) {
-          print('Navigating to reminder edit screen: $reminderId');
-          // 需要 GoRouter 实例或一个全局导航 Key 来导航
-          // globalNavigatorKey.currentState?.push(...);
-          // 或者使用 deep linking / GoRouter 的 refresh 功能
-        }
+    if (payload != null && payload.startsWith('reminder:')) {
+      final reminderId = int.tryParse(payload.split(':')[1]);
+      if (reminderId != null) {
+        print('Navigation payload detected for reminder: $reminderId');
+        // TODO: Implement navigation logic using GoRouter or Navigator
+        // Example: _ref.read(goRouterProvider).go('/edit-reminder/$reminderId');
       }
     }
-    // 可以在这里处理特定的 actionId (如果通知有按钮)
   }
 
-  // --- 调度和取消通知 ---
+  // --- Scheduling and Cancelling ---
 
-  // 调度一个提醒通知
+  // Schedule a reminder notification
   Future<void> scheduleReminderNotification(Reminder reminder) async {
-    // 1. Ensure timezones are initialized
+    // 1. Ensure timezones are initialized (redundant if initialize() called, but safe)
     try {
       tz_data.initializeTimeZones();
-    } catch (_) {}
-    final location = tz.local; // Get the local timezone location object
-    final nowLocalTz = tz.TZDateTime.now(location);
-
-    // 2. !! CRITICAL: Convert DB DateTime (assumed UTC) to Local TZDateTime !!
-    //    This is the definitive conversion point.
-    late final tz.TZDateTime scheduledDateTime; // Use late final
-
+    } catch (_) {
+      // Already initialized likely
+    }
+    // 2. !! Get the ACTUAL local timezone !!
+    final tz.Location location;
     try {
-      // Assume reminder.nextDueDate from DB is DateTime, likely representing UTC epoch seconds
-      final DateTime nextDueUtcFromDb = reminder.nextDueDate;
-      scheduledDateTime = tz.TZDateTime.from(nextDueUtcFromDb, location);
-      print(
-        "Converted DB DateTime ${nextDueUtcFromDb.toIso8601String()} (isUtc: ${nextDueUtcFromDb.isUtc}) to Local TZDateTime ${scheduledDateTime.toIso8601String()} (Location: ${scheduledDateTime.location.name})",
-      );
+         location = tz.local;
     } catch (e) {
-      print(
-        "Error converting reminder.nextDueDate to local TZDateTime: $e. Cannot schedule.",
-      );
-      return; // Stop if conversion fails
+        print("Error getting local timezone: $e. Defaulting to UTC for scheduling.");
+        // Fallback or rethrow, depending on desired behavior
+        location = tz.getLocation('UTC');
     }
 
-    // 3. Check if reminder is active and not already overdue using the converted local time
-    if (!reminder.isActive || scheduledDateTime.isBefore(nowLocalTz)) {
+
+    // 3. !! CRITICAL: Construct TZDateTime using LOCAL timezone and DB DateTime components !!
+    //    Assume reminder.nextDueDate stores the intended *local* date and time.
+    late final tz.TZDateTime scheduledDateTime;
+    try {
+      final DateTime dbDateTime = reminder.nextDueDate;
+      // Create TZDateTime explicitly using the components and the local location
+      scheduledDateTime = tz.TZDateTime(
+          location, // Use the determined local location
+          dbDateTime.year,
+          dbDateTime.month,
+          dbDateTime.day,
+          dbDateTime.hour,
+          dbDateTime.minute,
+          dbDateTime.second);
+
       print(
-        'Reminder ${reminder.id} is inactive or overdue (Scheduled Local: $scheduledDateTime vs Now Local: $nowLocalTz). Notification not scheduled.',
-      );
+          "DB DateTime components: Year=${dbDateTime.year}, Month=${dbDateTime.month}, Day=${dbDateTime.day}, Hour=${dbDateTime.hour}, Min=${dbDateTime.minute}");
+      print(
+          "Constructed schedule time: ${scheduledDateTime.toIso8601String()} in Location: ${location.name}");
+
+    } catch (e) {
+      print(
+          "Error constructing local TZDateTime from reminder.nextDueDate: $e. Cannot schedule.");
+      return; // Stop if construction fails
+    }
+
+    // 4. Check if reminder is active and if the calculated schedule time is in the past
+    final nowLocalTz = tz.TZDateTime.now(location);
+    if (!reminder.isActive) {
+        print('Reminder ${reminder.id} is inactive. Notification not scheduled.');
+        return;
+    }
+    // Add a small buffer (e.g., 1 second) to prevent race conditions
+    if (scheduledDateTime.isBefore(nowLocalTz.add(const Duration(seconds: 1)))) {
+      print(
+          'Reminder ${reminder.id} schedule time ${scheduledDateTime.toIso8601String()} is in the past compared to now ${nowLocalTz.toIso8601String()}. Notification not scheduled.');
+      // Optionally: Calculate the *next* occurrence based on frequency rule here
+      // if (reminder.frequency != null) { ... recalculate and reschedule ... }
       return;
     }
 
-    // 4. Define Android Notification Details (Keep as before)
-    const AndroidNotificationDetails
-    androidDetails = AndroidNotificationDetails(
-      'plant_pet_reminders_channel_id', // Channel ID (Keep this consistent)
-      'Plant & Pet Reminders', // Channel Name (User visible in settings)
-      channelDescription:
-          '用于植物和宠物护理提醒的通知', // Channel Description (User visible in settings)
-      importance: Importance.max, // High importance for reminders
+
+    // 5. Define Android Notification Details (Consistent)
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'plant_pet_reminders_channel_id', // Channel ID
+      'Plant & Pet Reminders', // Channel Name
+      channelDescription: '用于植物和宠物护理提醒的通知', // Channel Description
+      importance: Importance.max,
       priority: Priority.high,
-      ticker: '任务提醒', // Optional ticker text
+      ticker: '任务提醒',
       playSound: true,
-      // sound: ..., // Optional custom sound
-      // enableVibration: true, // Optional vibration
-      // visibility: NotificationVisibility.public, // Optional lock screen visibility
-      // other properties...
     );
 
-    // 5. Define iOS Notification Details (Keep as before)
+    // 6. Define iOS Notification Details (Consistent)
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      // threadIdentifier: 'reminder_thread', // Optional: Group notifications
     );
 
-    // 6. Consolidate Platform Details (Keep as before)
+    // 7. Consolidate Platform Details (Consistent)
     const NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
 
-    // 7. Final check if time is in the past (using the converted local time)
-    if (scheduledDateTime.isBefore(tz.TZDateTime.now(location))) {
-      print(
-        'Scheduled time ${scheduledDateTime} (in ${location.name}) is in the past just before scheduling reminder ${reminder.id}. Skipping.',
-      );
-      return;
-    }
-
     // 8. Schedule the notification using zonedSchedule
-    final notificationId = reminder.id & 0x7FFFFFFF;
+    // Use reminder.id directly or masked if > 31 bits needed for Android ID
+    final notificationId = reminder.id & 0x7FFFFFFF; // Ensure 32-bit int for notification ID
     print(
-      'Scheduling notification for reminder ${reminder.id} at $scheduledDateTime in timezone ${scheduledDateTime.location.name} (ID: $notificationId)',
-    );
+        'Scheduling notification for reminder ${reminder.id} at $scheduledDateTime in timezone ${location.name} (Notification ID: $notificationId)');
 
     try {
       await _flutterLocalNotificationsPlugin.zonedSchedule(
         notificationId,
-        reminder.taskName,
-        _getNotificationBody(reminder),
-        scheduledDateTime, // !! Pass the verified local TZDateTime !!
+        reminder.taskName, // Title
+        _getNotificationBody(reminder), // Body
+        scheduledDateTime, // !! Pass the correctly constructed local TZDateTime !!
         platformDetails,
-        payload: 'reminder:${reminder.id}',
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'reminder:${reminder.id}', // Payload for navigation
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Use exact timing
         uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
+            UILocalNotificationDateInterpretation.absoluteTime, // Use absolute time
       );
       print('Notification for reminder ${reminder.id} successfully scheduled.');
     } catch (e) {
       print('Error scheduling notification for reminder ${reminder.id}: $e');
+      // Consider how to handle scheduling errors (e.g., retry, log to analytics)
     }
   }
 
-  // Helper to get notification body (Keep as before)
+  // Helper to get notification body
   String _getNotificationBody(Reminder reminder) {
     if (reminder.notes != null && reminder.notes!.isNotEmpty) {
       return reminder.notes!;
     }
+    // Consider fetching Plant/Pet name if objectId/Type are available
     return '是时候完成任务 "${reminder.taskName}" 了！';
   }
 
-  // 取消一个通知
+  // Cancel a specific notification
   Future<void> cancelNotification(int reminderId) async {
     final notificationId = reminderId & 0x7FFFFFFF;
     await _flutterLocalNotificationsPlugin.cancel(notificationId);
-    print(
-      'Cancelled notification for reminder $reminderId (ID: $notificationId)',
-    );
+    print('Cancelled notification for reminder $reminderId (ID: $notificationId)');
   }
 
-  // 取消所有通知
+  // Cancel all notifications
   Future<void> cancelAllNotifications() async {
     await _flutterLocalNotificationsPlugin.cancelAll();
     print('Cancelled all notifications');
   }
 
-  // (可选) 应用启动时重新调度所有激活的提醒 (以防错过或应用更新导致丢失)
+  // Reschedule all active reminders on app start (optional but recommended)
   Future<void> rescheduleAllActiveReminders() async {
     print('Rescheduling all active reminders...');
-    await cancelAllNotifications(); // 先取消所有旧的
+    await cancelAllNotifications(); // Cancel existing ones first
 
-    final db = _ref.read(databaseProvider); // 需要 Ref 来访问数据库
-    final activeReminders =
-        await (db.select(db.reminders)
-          ..where((tbl) => tbl.isActive.equals(true))).get();
+    final db = _ref.read(databaseProvider);
+    final activeReminders = await (db.select(db.reminders)
+          ..where((tbl) => tbl.isActive.equals(true)))
+        .get();
 
     int scheduledCount = 0;
+    int skippedCount = 0;
     for (final reminder in activeReminders) {
       try {
+        // Call scheduleReminderNotification which now contains the past check
         await scheduleReminderNotification(reminder);
-        scheduledCount++;
+        // Check if it was actually scheduled (not skipped for being in the past)
+        final pending = await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+        if (pending.any((req) => req.id == (reminder.id & 0x7FFFFFFF))) {
+             scheduledCount++;
+        } else {
+             // It might have been skipped if overdue during reschedule
+             print("Reminder ${reminder.id} likely skipped during reschedule (already past due).");
+             skippedCount++;
+        }
+
       } catch (e) {
         print('Error rescheduling reminder ${reminder.id}: $e');
       }
     }
-    print('Rescheduled $scheduledCount active reminders.');
+    print('Reschedule finished: $scheduledCount reminders scheduled, $skippedCount skipped (likely past due).');
   }
 }
