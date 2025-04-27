@@ -1,10 +1,13 @@
 // lib/providers/object_providers.dart
+import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/local/database/app_database.dart';
 import '../models/enum.dart';
 import 'database_provider.dart';
 import 'list_filter_providers.dart'; // 引入排序/筛选状态 Provider
+import '../models/photo_info.dart';
 import 'package:drift/drift.dart'
     show
         BooleanExpressionOperators,
@@ -17,6 +20,98 @@ import 'package:drift/drift.dart'
         Variable; // 引入 Drift 排序类
 
 // --- Statistics Providers ---
+
+// Provider to get all photos associated with an object (profile + logs)
+// Takes objectId and objectType as parameters
+final objectPhotosProvider = FutureProvider.autoDispose.family<
+  List<PhotoInfo>,
+  ({int objectId, ObjectType objectType})
+>((ref, params) async {
+  final db = ref.read(databaseProvider);
+  final List<PhotoInfo> allPhotos = [];
+
+  // 1. Get the object's profile photo
+  dynamic objectData; // Plant or Pet
+  DateTime objectCreationDate = DateTime.now(); // Fallback
+  String? profilePhotoPath;
+
+  if (params.objectType == ObjectType.plant) {
+    objectData =
+        await (db.select(db.plants)
+          ..where((tbl) => tbl.id.equals(params.objectId))).getSingleOrNull();
+    if (objectData != null) {
+      profilePhotoPath = objectData.photoPath;
+      objectCreationDate =
+          objectData.creationDate; // Use creation date for profile pic
+    }
+  } else {
+    objectData =
+        await (db.select(db.pets)
+          ..where((tbl) => tbl.id.equals(params.objectId))).getSingleOrNull();
+    if (objectData != null) {
+      profilePhotoPath = objectData.photoPath;
+      objectCreationDate = objectData.creationDate;
+    }
+  }
+
+  if (profilePhotoPath != null && profilePhotoPath.isNotEmpty) {
+    allPhotos.add(
+      PhotoInfo(
+        filePath: profilePhotoPath,
+        dateTaken: objectCreationDate, // Use object creation date as reference
+        sourceType: PhotoSourceType.objectProfile,
+        sourceId: params.objectId.toString(),
+      ),
+    );
+  }
+
+  // 2. Get photos from log entries
+  final logs =
+      await (db.select(db.logEntries)
+            ..where(
+              (tbl) =>
+                  tbl.objectId.equals(params.objectId) &
+                  tbl.objectType.equals(params.objectType.index),
+            )
+            ..orderBy([
+              (t) => OrderingTerm(
+                expression: t.eventDateTime,
+                mode: OrderingMode.desc,
+              ),
+            ]) // Sort logs by date desc
+            )
+          .get();
+
+  for (final log in logs) {
+    if (log.photoPaths != null && log.photoPaths!.isNotEmpty) {
+      try {
+        final List<dynamic> pathsJson = jsonDecode(log.photoPaths!);
+        final List<String> paths = pathsJson.cast<String>();
+        for (final path in paths) {
+          if (path.isNotEmpty) {
+            // Ensure path is not empty
+            allPhotos.add(
+              PhotoInfo(
+                filePath: path,
+                dateTaken: log.eventDateTime, // Use log entry date
+                sourceType: PhotoSourceType.logEntry,
+                sourceId: log.id.toString(), // Log ID as source ID
+                logEventType: log.eventType, // Include event type
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print("Error decoding photo paths for log ${log.id}: $e");
+      }
+    }
+  }
+
+  // 3. Sort all photos by date (most recent first)
+  allPhotos.sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
+
+  return allPhotos;
+});
 
 // Provider for Pet Weight History Data (formatted for fl_chart)
 // Takes Pet ID as input (using .family)

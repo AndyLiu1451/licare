@@ -745,8 +745,9 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
   // Generate RRULE string or null
   String? _generateFrequencyRule() {
-    print("[AddEditReminderScreen] _generateFrequencyRule START");
-    // Returns String?
+    print(
+      "[AddEditReminderScreen] ==> START _generateFrequencyRule - Selected Freq: $_selectedFrequency",
+    );
     Frequency? frequency;
     int interval = 1;
     List<ByWeekDayEntry> byWeekDays = [];
@@ -754,18 +755,23 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
     switch (_selectedFrequency) {
       case ReminderFrequency.once:
+        print("<== END _generateFrequencyRule - Result: null (Once)");
         return null; // Return null for 'once'
       case ReminderFrequency.daily:
         frequency = Frequency.daily;
         break;
       case ReminderFrequency.weekly:
         frequency = Frequency.weekly;
-        // Use manual DayOfWeek list equivalent (integers 0-6)
-        final List<int> weekDayInts = [0, 1, 2, 3, 4, 5, 6]; // Mon=0, Sun=6
+        final List<int> weekDayInts = [1, 2, 3, 4, 5, 6, 7]; // Mon=0, Sun=6
         for (int i = 0; i < 7; i++) {
           if (_weeklyDaysSelected[i]) {
             byWeekDays.add(ByWeekDayEntry(weekDayInts[i]));
           }
+        }
+        if (byWeekDays.isEmpty) {
+          print(
+            "Warning: Generating weekly RRULE with no days selected. This might cause issues.",
+          );
         }
         break;
       case ReminderFrequency.monthly:
@@ -786,22 +792,34 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             frequency = Frequency.monthly;
             break;
           default:
+            print(
+              "<== END _generateFrequencyRule - Result: null (Invalid Custom Unit)",
+            );
             return null;
         }
         break;
     }
 
-    if (frequency == null) return null;
+    if (frequency == null) {
+      print(
+        "<== END _generateFrequencyRule - Result: null (Frequency not determined)",
+      );
+      return null;
+    }
 
-    // dtStart is not typically part of the RRULE string itself
+    // !! 不再传递 dtstart !!
     final rrule = RecurrenceRule(
       frequency: frequency,
       interval: interval,
-      byWeekDays: byWeekDays,
-      byMonthDays: byMonthDays,
+      byWeekDays: byWeekDays, // 这些参数是存在的
+      byMonthDays: byMonthDays, // 这些参数是存在的
+      // 其他可能需要的参数: until, count, bySetPos, etc.
     );
+
     final ruleString = rrule.toString();
-    print("[AddEditReminderScreen] _generateFrequencyRule END: $ruleString");
+    // 检查生成的字符串格式，它不会包含 DTSTART
+    print("    Generated RRULE String (No DTSTART): $ruleString");
+    print("<== END _generateFrequencyRule - Result: $ruleString");
     return ruleString;
   }
 

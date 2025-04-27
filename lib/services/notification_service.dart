@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart'; // For TimeOfDay etc. (or remove if not needed directly)
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // For accessing database later if needed for payload
-import 'package:timezone/data/latest_all.dart' as tz_data; // Renamed to avoid conflict
+import 'package:timezone/data/latest_all.dart'
+    as tz_data; // Renamed to avoid conflict
 import 'package:timezone/timezone.dart' as tz; // 时区功能
 import '../data/local/database/app_database.dart' show Reminder; // 引入 Reminder
 import '../models/enum.dart'; // For ObjectType
@@ -38,14 +39,16 @@ class NotificationService {
       priority: Priority.high,
       ticker: 'ticker', // Optional ticker text
       playSound: true,
-      // sound: RawResourceAndroidNotificationSound('notification_sound'), // Optional custom sound
-      // enableVibration: true,
-      // styleInformation: DefaultStyleInformation(true, true), // Optional style
+      sound: RawResourceAndroidNotificationSound(
+        'notification_sound',
+      ), // Optional custom sound
+      enableVibration: true,
+      styleInformation: DefaultStyleInformation(true, true), // Optional style
     );
 
     // 2. Define iOS Notification Details
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      // sound: 'notification_sound.aiff', // Optional custom sound
+      sound: 'notification_sound.aiff', // Optional custom sound
       presentAlert: true, // Ensure alert is shown
       presentBadge:
           true, // Optional: Update badge count (usually requires more logic)
@@ -84,12 +87,15 @@ class NotificationService {
 
     // 3. Android Initialization Settings
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon'); // Use your drawable/mipmap icon name
+        AndroidInitializationSettings(
+          'app_icon',
+        ); // Use your drawable/mipmap icon name
 
     // 4. iOS Initialization Settings
     final DarwinInitializationSettings
     initializationSettingsIOS = DarwinInitializationSettings(
-      requestAlertPermission: false, // Permissions requested elsewhere (AppDelegate)
+      requestAlertPermission:
+          false, // Permissions requested elsewhere (AppDelegate)
       requestBadgePermission: false,
       requestSoundPermission: false,
       //onDidReceiveLocalNotification: _onDidReceiveLocalNotification, // Old iOS callback
@@ -119,9 +125,11 @@ class NotificationService {
 
   // Request Android Permissions
   Future<void> _requestAndroidPermissions() async {
-    final plugin = _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final plugin =
+        _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
     if (plugin != null) {
       final bool? granted = await plugin.requestNotificationsPermission();
       print('Android Notification Permission Granted: $granted');
@@ -133,8 +141,8 @@ class NotificationService {
 
   // Request iOS Permissions (placeholder, usually done in AppDelegate)
   Future<void> _requestIOSPermissions() async {
-     // If needed, can use plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>().requestPermissions(...)
-     print("iOS permission request handled in AppDelegate or manually.");
+    // If needed, can use plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>().requestPermissions(...)
+    print("iOS permission request handled in AppDelegate or manually.");
   }
 
   // --- Callbacks ---
@@ -157,7 +165,8 @@ class NotificationService {
     NotificationResponse notificationResponse,
   ) async {
     final String? payload = notificationResponse.payload;
-    final int? id = notificationResponse.id; // Notification ID (maps to Reminder ID)
+    final int? id =
+        notificationResponse.id; // Notification ID (maps to Reminder ID)
     print(
       'Notification tapped: id=$id, payload=$payload, actionId=${notificationResponse.actionId}',
     );
@@ -183,15 +192,16 @@ class NotificationService {
       // Already initialized likely
     }
     // 2. !! Get the ACTUAL local timezone !!
-    final tz.Location location;
+    late final tz.Location location;
     try {
-         location = tz.local;
+      location = tz.local;
     } catch (e) {
-        print("Error getting local timezone: $e. Defaulting to UTC for scheduling.");
-        // Fallback or rethrow, depending on desired behavior
-        location = tz.getLocation('UTC');
+      print(
+        "Error getting local timezone: $e. Defaulting to UTC for scheduling.",
+      );
+      // Fallback or rethrow, depending on desired behavior
+      location = tz.getLocation('UTC');
     }
-
 
     // 3. !! CRITICAL: Construct TZDateTime using LOCAL timezone and DB DateTime components !!
     //    Assume reminder.nextDueDate stores the intended *local* date and time.
@@ -200,51 +210,57 @@ class NotificationService {
       final DateTime dbDateTime = reminder.nextDueDate;
       // Create TZDateTime explicitly using the components and the local location
       scheduledDateTime = tz.TZDateTime(
-          location, // Use the determined local location
-          dbDateTime.year,
-          dbDateTime.month,
-          dbDateTime.day,
-          dbDateTime.hour,
-          dbDateTime.minute,
-          dbDateTime.second);
+        location, // Use the determined local location
+        dbDateTime.year,
+        dbDateTime.month,
+        dbDateTime.day,
+        dbDateTime.hour,
+        dbDateTime.minute,
+        dbDateTime.second,
+      );
 
       print(
-          "DB DateTime components: Year=${dbDateTime.year}, Month=${dbDateTime.month}, Day=${dbDateTime.day}, Hour=${dbDateTime.hour}, Min=${dbDateTime.minute}");
+        "DB DateTime components: Year=${dbDateTime.year}, Month=${dbDateTime.month}, Day=${dbDateTime.day}, Hour=${dbDateTime.hour}, Min=${dbDateTime.minute}",
+      );
       print(
-          "Constructed schedule time: ${scheduledDateTime.toIso8601String()} in Location: ${location.name}");
-
+        "Constructed schedule time: ${scheduledDateTime.toIso8601String()} in Location: ${location.name}",
+      );
     } catch (e) {
       print(
-          "Error constructing local TZDateTime from reminder.nextDueDate: $e. Cannot schedule.");
+        "Error constructing local TZDateTime from reminder.nextDueDate: $e. Cannot schedule.",
+      );
       return; // Stop if construction fails
     }
 
     // 4. Check if reminder is active and if the calculated schedule time is in the past
     final nowLocalTz = tz.TZDateTime.now(location);
     if (!reminder.isActive) {
-        print('Reminder ${reminder.id} is inactive. Notification not scheduled.');
-        return;
+      print('Reminder ${reminder.id} is inactive. Notification not scheduled.');
+      return;
     }
     // Add a small buffer (e.g., 1 second) to prevent race conditions
-    if (scheduledDateTime.isBefore(nowLocalTz.add(const Duration(seconds: 1)))) {
+    if (scheduledDateTime.isBefore(
+      nowLocalTz.add(const Duration(seconds: 1)),
+    )) {
       print(
-          'Reminder ${reminder.id} schedule time ${scheduledDateTime.toIso8601String()} is in the past compared to now ${nowLocalTz.toIso8601String()}. Notification not scheduled.');
+        'Reminder ${reminder.id} schedule time ${scheduledDateTime.toIso8601String()} is in the past compared to now ${nowLocalTz.toIso8601String()}. Notification not scheduled.',
+      );
       // Optionally: Calculate the *next* occurrence based on frequency rule here
       // if (reminder.frequency != null) { ... recalculate and reschedule ... }
       return;
     }
 
-
     // 5. Define Android Notification Details (Consistent)
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'plant_pet_reminders_channel_id', // Channel ID
-      'Plant & Pet Reminders', // Channel Name
-      channelDescription: '用于植物和宠物护理提醒的通知', // Channel Description
-      importance: Importance.max,
-      priority: Priority.high,
-      ticker: '任务提醒',
-      playSound: true,
-    );
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'plant_pet_reminders_channel_id', // Channel ID
+          'Plant & Pet Reminders', // Channel Name
+          channelDescription: '用于植物和宠物护理提醒的通知', // Channel Description
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: '任务提醒',
+          playSound: true,
+        );
 
     // 6. Define iOS Notification Details (Consistent)
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -261,9 +277,11 @@ class NotificationService {
 
     // 8. Schedule the notification using zonedSchedule
     // Use reminder.id directly or masked if > 31 bits needed for Android ID
-    final notificationId = reminder.id & 0x7FFFFFFF; // Ensure 32-bit int for notification ID
+    final notificationId =
+        reminder.id & 0x7FFFFFFF; // Ensure 32-bit int for notification ID
     print(
-        'Scheduling notification for reminder ${reminder.id} at $scheduledDateTime in timezone ${location.name} (Notification ID: $notificationId)');
+      'Scheduling notification for reminder ${reminder.id} at $scheduledDateTime in timezone ${location.name} (Notification ID: $notificationId)',
+    );
 
     try {
       await _flutterLocalNotificationsPlugin.zonedSchedule(
@@ -273,9 +291,11 @@ class NotificationService {
         scheduledDateTime, // !! Pass the correctly constructed local TZDateTime !!
         platformDetails,
         payload: 'reminder:${reminder.id}', // Payload for navigation
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Use exact timing
+        androidScheduleMode:
+            AndroidScheduleMode.exactAllowWhileIdle, // Use exact timing
         uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime, // Use absolute time
+            UILocalNotificationDateInterpretation
+                .absoluteTime, // Use absolute time
       );
       print('Notification for reminder ${reminder.id} successfully scheduled.');
     } catch (e) {
@@ -297,7 +317,9 @@ class NotificationService {
   Future<void> cancelNotification(int reminderId) async {
     final notificationId = reminderId & 0x7FFFFFFF;
     await _flutterLocalNotificationsPlugin.cancel(notificationId);
-    print('Cancelled notification for reminder $reminderId (ID: $notificationId)');
+    print(
+      'Cancelled notification for reminder $reminderId (ID: $notificationId)',
+    );
   }
 
   // Cancel all notifications
@@ -312,9 +334,9 @@ class NotificationService {
     await cancelAllNotifications(); // Cancel existing ones first
 
     final db = _ref.read(databaseProvider);
-    final activeReminders = await (db.select(db.reminders)
-          ..where((tbl) => tbl.isActive.equals(true)))
-        .get();
+    final activeReminders =
+        await (db.select(db.reminders)
+          ..where((tbl) => tbl.isActive.equals(true))).get();
 
     int scheduledCount = 0;
     int skippedCount = 0;
@@ -323,19 +345,24 @@ class NotificationService {
         // Call scheduleReminderNotification which now contains the past check
         await scheduleReminderNotification(reminder);
         // Check if it was actually scheduled (not skipped for being in the past)
-        final pending = await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+        final pending =
+            await _flutterLocalNotificationsPlugin
+                .pendingNotificationRequests();
         if (pending.any((req) => req.id == (reminder.id & 0x7FFFFFFF))) {
-             scheduledCount++;
+          scheduledCount++;
         } else {
-             // It might have been skipped if overdue during reschedule
-             print("Reminder ${reminder.id} likely skipped during reschedule (already past due).");
-             skippedCount++;
+          // It might have been skipped if overdue during reschedule
+          print(
+            "Reminder ${reminder.id} likely skipped during reschedule (already past due).",
+          );
+          skippedCount++;
         }
-
       } catch (e) {
         print('Error rescheduling reminder ${reminder.id}: $e');
       }
     }
-    print('Reschedule finished: $scheduledCount reminders scheduled, $skippedCount skipped (likely past due).');
+    print(
+      'Reschedule finished: $scheduledCount reminders scheduled, $skippedCount skipped (likely past due).',
+    );
   }
 }

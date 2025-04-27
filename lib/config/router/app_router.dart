@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:plant_pet_log/models/photo_info.dart';
+import 'package:plant_pet_log/presentation/screens/gallery/photo_comparison_screen.dart';
+import 'package:plant_pet_log/presentation/screens/gallery/photo_gallery_screen.dart';
 // ... 引入你的屏幕文件 ...
 import '../../presentation/screens/main/main_screen.dart';
 import '../../presentation/screens/plants/plant_list_screen.dart';
@@ -12,6 +15,8 @@ import '../../presentation/screens/add_edit/add_edit_object_screen.dart';
 import '../../presentation/screens/add_edit/add_edit_reminder_screen.dart'; // 引入提醒编辑页
 import '../../models/enum.dart'; // 引入枚举
 import '../../presentation/screens/settings/settings_screen.dart';
+import '../../presentation/screens/knowledge/knowledge_base_screen.dart';
+import '../../presentation/screens/knowledge/knowledge_detail_screen.dart';
 
 // 使用 Provider.family 接收 GlobalKey<NavigatorState>
 final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
@@ -47,6 +52,30 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
                           objectId: int.parse(state.pathParameters['id']!),
                           objectType: ObjectType.plant,
                         ),
+                  ),
+                  GoRoute(
+                    path: 'gallery',
+                    name: 'plantGallery',
+                    builder: (context, state) {
+                      // !! 修改点：从 extra 获取 ID 和 name !!
+                      final extraData = state.extra as Map<String, dynamic>?;
+                      if (extraData == null ||
+                          extraData['objectId'] is! int ||
+                          extraData['objectName'] is! String) {
+                        // Handle error: Invalid or missing extra data
+                        return const Scaffold(
+                          body: Center(child: Text('错误：无法加载照片库数据')),
+                        );
+                      }
+                      final objectId = extraData['objectId'] as int;
+                      final objectName = extraData['objectName'] as String;
+
+                      return PhotoGalleryScreen(
+                        objectId: objectId,
+                        objectType: ObjectType.plant,
+                        objectName: objectName,
+                      );
+                    },
                   ),
                   GoRoute(
                     path: 'add',
@@ -85,6 +114,29 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
                           objectId: int.parse(state.pathParameters['id']!),
                           objectType: ObjectType.pet,
                         ),
+                  ),
+                  GoRoute(
+                    path: 'gallery',
+                    name: 'petGallery',
+                    builder: (context, state) {
+                      // !! 修改点：从 extra 获取 ID 和 name !!
+                      final extraData = state.extra as Map<String, dynamic>?;
+                      if (extraData == null ||
+                          extraData['objectId'] is! int ||
+                          extraData['objectName'] is! String) {
+                        return const Scaffold(
+                          body: Center(child: Text('错误：无法加载照片库数据')),
+                        );
+                      }
+                      final objectId = extraData['objectId'] as int;
+                      final objectName = extraData['objectName'] as String;
+
+                      return PhotoGalleryScreen(
+                        objectId: objectId,
+                        objectType: ObjectType.pet,
+                        objectName: objectName,
+                      );
+                    },
                   ),
                   GoRoute(
                     path: 'add',
@@ -146,6 +198,46 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
 
           // ... 其他 branches ...
         ],
+      ),
+      GoRoute(
+        path: '/knowledge', // 主路径
+        name: KnowledgeBaseScreen.routeName,
+        builder: (context, state) => const KnowledgeBaseScreen(),
+        routes: [
+          // 详情页子路由
+          GoRoute(
+            path: 'detail/:topicId', // 使用路径参数
+            name: KnowledgeDetailScreen.routeName,
+            builder: (context, state) {
+              final topicId = state.pathParameters['topicId'] ?? '';
+              // 获取从 extra 传递过来的类型
+              final type =
+                  state.extra as KnowledgeType? ??
+                  KnowledgeType.plant; // Default or handle error
+              return KnowledgeDetailScreen(topicId: topicId, type: type);
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/photo-comparison',
+        name: PhotoComparisonScreen.routeName,
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>?;
+          if (data != null &&
+              data['photo1'] is PhotoInfo &&
+              data['photo2'] is PhotoInfo &&
+              data['objectName'] is String) {
+            return PhotoComparisonScreen(
+              photo1: data['photo1'] as PhotoInfo,
+              photo2: data['photo2'] as PhotoInfo,
+              objectName: data['objectName'] as String,
+            );
+          } else {
+            // Handle error - maybe navigate back or show error page
+            return const Scaffold(body: Center(child: Text('无法加载对比照片')));
+          }
+        },
       ),
       // ... 其他顶层路由 ...
     ],

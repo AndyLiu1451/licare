@@ -116,6 +116,29 @@ class DetailsScreen extends ConsumerWidget {
                 ),
                 actions: [
                   IconButton(
+                    icon: const Icon(Icons.photo_library_outlined),
+                    tooltip: '查看照片墙',
+                    onPressed: () {
+                      // !! 修改点：将 objectId 和 name 都放入 extra !!
+                      final extraData = {
+                        'objectId': objectId, // 传递 ID
+                        'objectName': name, // 传递名称
+                      };
+
+                      if (objectType == ObjectType.plant) {
+                        context.goNamed(
+                          'plantGallery',
+                          extra: extraData, // 传递包含 ID 和名称的 Map
+                        );
+                      } else {
+                        context.goNamed(
+                          'petGallery',
+                          extra: extraData, // 传递包含 ID 和名称的 Map
+                        );
+                      }
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.edit),
                     tooltip: '编辑',
                     onPressed: () {

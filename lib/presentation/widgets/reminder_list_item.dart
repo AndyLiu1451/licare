@@ -398,6 +398,7 @@ class ReminderListItem extends ConsumerWidget {
     WidgetRef ref,
     Reminder reminder,
   ) async {
+    print("==> START _markReminderDone - Reminder ID: ${reminder.id}");
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final db = ref.read(databaseProvider);
     final notificationService = ref.read(notificationServiceProvider);
@@ -407,13 +408,17 @@ class ReminderListItem extends ConsumerWidget {
       tz_data.initializeTimeZones();
     } catch (_) {}
     final location = tz.local;
-
+    print(
+      "--> BEFORE calculateNextDueDate - Rule: ${reminder.frequencyRule}",
+    ); // <-- 添加日志 (2)
     // Calculate the next due date using ReminderUtils
     tz.TZDateTime? nextDueDate = ReminderUtils.calculateNextDueDate(
       reminder,
       location: location,
     );
-
+    print(
+      "<-- AFTER calculateNextDueDate - Result: $nextDueDate",
+    ); // <-- 添加日志 (3)
     try {
       Reminder updatedReminder;
 
@@ -427,33 +432,47 @@ class ReminderListItem extends ConsumerWidget {
           nextDueDate: nextDueDate,
           isActive: true,
         ); // Ensure isActive stays true
+        print("--> BEFORE DB Update (Recurring)"); // <-- 添加日志 (4a)
         await db.updateReminder(
           updatedReminder.toCompanion(false),
         ); // Use extension or manual companion
+        print("<-- AFTER DB Update (Recurring)"); // <-- 添加日志 (4b)
 
+        print("--> BEFORE Notification Cancel (Recurring)"); // <-- 添加日志 (5a)
         // Reschedule notification
         await notificationService.cancelNotification(reminder.id);
-        await notificationService.scheduleReminderNotification(updatedReminder);
+        print("<-- AFTER Notification Cancel (Recurring)"); // <-- 添加日志 (5b)
 
+        print("--> BEFORE Notification Schedule (Recurring)"); // <-- 添加日志 (6a)
+        await notificationService.scheduleReminderNotification(updatedReminder);
+        print("<-- AFTER Notification Schedule (Recurring)"); // <-- 添加日志 (6b)
         if (context.mounted) {
+          print("--> BEFORE SnackBar (Recurring)"); // <-- 添加日志 (7a)
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('任务 "${reminder.taskName}" 完成！下次时间已更新。')),
           );
+          print("<-- AFTER SnackBar (Recurring)"); // <-- 添加日志 (7b)
         }
       } else {
         // --- ONCE reminder or end of recurrence ---
         print('Marking ONCE reminder ${reminder.id} as inactive.');
         // Create updated reminder, set inactive
         updatedReminder = reminder.copyWith(isActive: false);
+        print("--> BEFORE DB Update (Once/End)"); // <-- 添加日志 (8a)
         await db.updateReminder(updatedReminder.toCompanion(false));
+        print("<-- AFTER DB Update (Once/End)"); // <-- 添加日志 (8b)
+        print("--> BEFORE Notification Cancel (Once/End)"); // <-- 添加日志 (9a)
 
         // Cancel notification as it's done or inactive
         await notificationService.cancelNotification(reminder.id);
+        print("<-- AFTER Notification Cancel (Once/End)"); // <-- 添加日志 (9b)
 
         if (context.mounted) {
+          print("--> BEFORE SnackBar (Once/End)"); // <-- 添加日志 (10a)
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('任务 "${reminder.taskName}" 已完成！')),
           );
+          print("<-- AFTER SnackBar (Once/End)"); // <-- 添加日志 (10b)
         }
       }
 

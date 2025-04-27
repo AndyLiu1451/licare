@@ -6,6 +6,8 @@ import 'package:plant_pet_log/data/local/database/app_database.dart'; // Import 
 import 'package:plant_pet_log/providers/database_provider.dart'; // Import database provider
 import 'package:plant_pet_log/services/data_management_service.dart'; // Import the service
 import 'package:plant_pet_log/providers/theme_provider.dart'; // 引入 theme providers
+import 'package:go_router/go_router.dart'; // 引入 GoRouter
+import 'package:plant_pet_log/presentation/screens/knowledge/knowledge_base_screen.dart'; // !! 引入知识库页面 !!
 
 // Helper to pass context to service if needed for sharing
 // Ensure this helper class exists or remove its usage if not strictly needed for share sheet positioning
@@ -22,32 +24,26 @@ class SettingsScreen extends ConsumerWidget {
     bool success = false;
     String? message;
 
-    // Ask user where to save (optional, but recommended for non-sandboxed access)
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
       dialogTitle: '请选择备份保存位置',
     );
 
     if (selectedDirectory != null) {
-      // Show progress indicator briefly
       scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('正在备份...'),
           duration: Duration(seconds: 1),
         ),
       );
-      // Wait a bit for the snackbar to show before potentially blocking operation
       await Future.delayed(const Duration(milliseconds: 300));
-
       success = await dataService.backupDatabase(selectedDirectory);
       message = success ? '备份成功！已保存到选定目录。' : '备份失败。';
     } else {
-      // User canceled directory selection
       message = '备份已取消。';
     }
 
-    // Ensure the widget is still mounted before showing the final snackbar
     if (context.mounted) {
-      scaffoldMessenger.removeCurrentSnackBar(); // Remove "正在备份..." snackbar
+      scaffoldMessenger.removeCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(message),
@@ -65,13 +61,11 @@ class SettingsScreen extends ConsumerWidget {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final dataService = ref.read(dataManagementServiceProvider);
 
-    // Show confirmation dialog - VERY IMPORTANT
     final confirm = await showDialog<bool>(
       context: context,
-      barrierDismissible: false, // User must explicitly choose
+      barrierDismissible: false,
       builder:
           (dialogContext) => AlertDialog(
-            // Use dialogContext
             title: const Text('确认恢复数据?'),
             content: const Text(
               '将使用选定的备份文件覆盖当前所有数据！\n\n'
@@ -95,19 +89,14 @@ class SettingsScreen extends ConsumerWidget {
 
     if (confirm != true) {
       if (context.mounted) {
-        // Check if context is still valid
         scaffoldMessenger.showSnackBar(const SnackBar(content: Text('恢复已取消')));
       }
       return;
     }
 
-    // --- Close DB Connection (Instruct user to restart) ---
-    // No code here to close DB, rely on user restarting
-
-    if (!context.mounted) return; // Check context before showing next snackbar
+    if (!context.mounted) return;
 
     scaffoldMessenger.showSnackBar(const SnackBar(content: Text('请选择备份文件...')));
-    // Delay slightly to allow snackbar to show before file picker potentially blocks UI
     await Future.delayed(const Duration(milliseconds: 100));
 
     bool success = await dataService.restoreDatabase();
@@ -120,14 +109,11 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     if (context.mounted) {
-      // Check context again before showing final result
-      scaffoldMessenger.removeCurrentSnackBar(); // Remove "请选择..." snackbar
+      scaffoldMessenger.removeCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(message),
-          duration: const Duration(
-            seconds: 6,
-          ), // Longer duration for restart message
+          duration: const Duration(seconds: 6),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -138,7 +124,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _performExport(BuildContext context, WidgetRef ref) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final dataService = ref.read(dataManagementServiceProvider);
-    final db = ref.read(databaseProvider); // Need db instance for export
+    final db = ref.read(databaseProvider);
 
     scaffoldMessenger.showSnackBar(
       const SnackBar(
@@ -146,23 +132,17 @@ class SettingsScreen extends ConsumerWidget {
         duration: Duration(seconds: 1),
       ),
     );
-    await Future.delayed(
-      const Duration(milliseconds: 300),
-    ); // Allow snackbar to show
+    await Future.delayed(const Duration(milliseconds: 300));
 
-    // Set context for potential iPad share UI positioning
-    // ContextMenuHelper.setContext(context); // Ensure this helper is defined or remove if not needed
+    // ContextMenuHelper.setContext(context); // Ensure this helper is defined or remove
 
     try {
       final filePath = await dataService.exportLogsToCsv(db);
 
       if (context.mounted) {
-        // Check context before interacting with UI
-        scaffoldMessenger.removeCurrentSnackBar(); // Remove "正在导出..." snackbar
+        scaffoldMessenger.removeCurrentSnackBar();
         if (filePath != null) {
-          // Ask user to share/save the file
           await dataService.shareFile(filePath, '植物宠物日志导出');
-          // Note: No success snackbar needed here as share sheet handles completion.
         } else {
           scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('没有日志数据可导出。')),
@@ -170,7 +150,7 @@ class SettingsScreen extends ConsumerWidget {
         }
       }
     } catch (e) {
-      print("Export failed: $e"); // Log the error for debugging
+      print("Export failed: $e");
       if (context.mounted) {
         scaffoldMessenger.removeCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
@@ -184,21 +164,14 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 获取当前主题状态
     final currentThemeMode = ref.watch(themeNotifierProvider);
     final currentColorIndex = ref.watch(selectedColorIndexProvider);
-    // 获取 ThemeNotifier 用于调用方法
     final themeNotifier = ref.read(themeNotifierProvider.notifier);
 
-    // !! 移除 Scaffold 和 AppBar !!
-    // 直接返回 ListView
     return ListView(
-      padding: const EdgeInsets.only(
-        top: 8.0,
-        bottom: 16.0,
-      ), // Add some padding
+      padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
       children: [
-        // --- 主题设置 ---
+        // --- 外观设置 ---
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Text(
@@ -209,6 +182,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         RadioListTile<ThemeMode>(
+          /* ... ThemeMode.system ... */
           title: const Text('跟随系统'),
           value: ThemeMode.system,
           groupValue: currentThemeMode,
@@ -216,9 +190,10 @@ class SettingsScreen extends ConsumerWidget {
             if (value != null) themeNotifier.changeThemeMode(value);
           },
           secondary: const Icon(Icons.brightness_auto_outlined),
-          dense: true, // Make it a bit more compact
+          dense: true,
         ),
         RadioListTile<ThemeMode>(
+          /* ... ThemeMode.light ... */
           title: const Text('浅色模式'),
           value: ThemeMode.light,
           groupValue: currentThemeMode,
@@ -229,6 +204,7 @@ class SettingsScreen extends ConsumerWidget {
           dense: true,
         ),
         RadioListTile<ThemeMode>(
+          /* ... ThemeMode.dark ... */
           title: const Text('深色模式'),
           value: ThemeMode.dark,
           groupValue: currentThemeMode,
@@ -239,48 +215,40 @@ class SettingsScreen extends ConsumerWidget {
           dense: true,
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            16.0,
-            16.0,
-            16.0,
-            8.0,
-          ), // Adjust padding
-          child: Text(
-            '主题颜色',
-            style: Theme.of(context).textTheme.titleMedium,
-          ), // Use titleMedium
+          /* ... 主题颜色 Title ... */
+          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+          child: Text('主题颜色', style: Theme.of(context).textTheme.titleMedium),
         ),
         Padding(
+          /* ... 颜色选择 Wrap ... */
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Wrap(
-            // 使用 Wrap 显示颜色选项
-            spacing: 12.0, // Increase spacing slightly
+            spacing: 12.0,
             runSpacing: 12.0,
-            alignment: WrapAlignment.start, // Align items to the start
+            alignment: WrapAlignment.start,
             children: List<Widget>.generate(AppTheme.colorThemes.length, (
               int index,
             ) {
               final color = AppTheme.colorThemes[index];
               final bool isSelected = index == currentColorIndex;
               return GestureDetector(
+                /* ... 颜色圆形 ... */
                 onTap: () {
-                  themeNotifier.changeColorIndex(index); // 直接调用 Notifier 的方法
+                  themeNotifier.changeColorIndex(index);
                 },
                 child: Container(
-                  width: 44, // Slightly larger tap target
+                  width: 44,
                   height: 44,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      // Add a subtle border always
                       color: Theme.of(
                         context,
                       ).colorScheme.outline.withOpacity(0.5),
                       width: 1.0,
                     ),
                   ),
-                  // Use a nested container for the selection indicator for better alignment
                   child:
                       isSelected
                           ? Center(
@@ -300,8 +268,6 @@ class SettingsScreen extends ConsumerWidget {
                                   width: 3.0,
                                 ),
                               ),
-                              // Optional: Add check mark inside the inner circle
-                              // child: Icon(Icons.check, size: 20, color: Colors.white),
                             ),
                           )
                           : null,
@@ -310,11 +276,31 @@ class SettingsScreen extends ConsumerWidget {
             }),
           ),
         ),
-        const Divider(
-          height: 32,
-          indent: 16,
-          endIndent: 16,
-        ), // Add indent to divider
+        const Divider(height: 32, indent: 16, endIndent: 16),
+
+        // --- 学习与帮助 ---
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text(
+            '学习与帮助', // 新增分组标题
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        ListTile(
+          // !! 新增知识库入口 ListTile !!
+          leading: const Icon(Icons.local_library_outlined),
+          title: const Text('养护知识库'),
+          subtitle: const Text('查看常见植物和宠物知识'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+          onTap: () {
+            context.goNamed(KnowledgeBaseScreen.routeName); // 跳转到知识库
+          },
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+        ),
+        const Divider(height: 32, indent: 16, endIndent: 16),
+
         // --- 数据管理 ---
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -326,19 +312,16 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         ListTile(
+          /* ... 备份数据 ... */
           leading: const Icon(Icons.backup_outlined),
           title: const Text('备份数据'),
           subtitle: const Text('将当前数据备份到选定位置'),
-          trailing: const Icon(
-            Icons.arrow_forward_ios,
-            size: 18,
-          ), // Smaller trailing icon
+          trailing: const Icon(Icons.arrow_forward_ios, size: 18),
           onTap: () => _performBackup(context, ref),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-          ), // Standard padding
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
         ),
         ListTile(
+          /* ... 恢复数据 ... */
           leading: Icon(Icons.restore_page_outlined, color: Colors.orange[700]),
           title: Text('恢复数据', style: TextStyle(color: Colors.orange[700])),
           subtitle: const Text('从备份文件恢复（覆盖当前数据！）'),
@@ -347,24 +330,17 @@ class SettingsScreen extends ConsumerWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
         ),
         ListTile(
-          leading: const Icon(
-            Icons.ios_share_outlined,
-          ), // Or Icons.table_chart_outlined
+          /* ... 导出日志 ... */
+          leading: const Icon(Icons.ios_share_outlined),
           title: const Text('导出日志为 CSV'),
           subtitle: const Text('将日志记录导出为表格文件'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 18),
           onTap: () => _performExport(context, ref),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
         ),
-        const Divider(indent: 16, endIndent: 16), // Add indent to divider
+        // const Divider(indent: 16, endIndent: 16), // Divider after export? Optional
         // --- 可选：关于页面/信息 ---
-        // ListTile(
-        //   leading: const Icon(Icons.info_outline),
-        //   title: const Text('关于'),
-        //   trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-        //   onTap: () { /* Navigate to About Screen */},
-        //   contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-        // )
+        // ListTile(...)
       ],
     );
   }
