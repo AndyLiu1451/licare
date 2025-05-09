@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:plant_pet_log/models/photo_info.dart';
 import 'package:plant_pet_log/presentation/screens/gallery/photo_comparison_screen.dart';
 import 'package:plant_pet_log/presentation/screens/gallery/photo_gallery_screen.dart';
+import 'package:plant_pet_log/presentation/screens/settings/manage_event_types_screen.dart';
 // ... 引入你的屏幕文件 ...
 import '../../presentation/screens/main/main_screen.dart';
 import '../../presentation/screens/plants/plant_list_screen.dart';
@@ -192,6 +193,14 @@ final goRouterProvider = Provider.family<GoRouter, GlobalKey<NavigatorState>>((
                 path: '/settings',
                 name: SettingsScreen.routeName, // 使用之前定义的 routeName
                 builder: (context, state) => const SettingsScreen(),
+                routes: [
+                  // !! 添加子路由 !!
+                  GoRoute(
+                    path: 'manage-event-types',
+                    name: ManageEventTypesScreen.routeName,
+                    builder: (context, state) => const ManageEventTypesScreen(),
+                  ),
+                ],
               ),
             ],
           ),

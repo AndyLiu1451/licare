@@ -1,3 +1,4 @@
+// lib/presentation/widgets/add_log_dialog.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -6,11 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:drift/drift.dart' hide Column; // <--- 添加这行
+import 'package:drift/drift.dart' hide Column; // 隐藏 drift 的 Column
 
 import '../../data/local/database/app_database.dart';
 import '../../models/enum.dart';
-import '../../providers/database_provider.dart'; // 引入 databaseProvider
+import '../../providers/database_provider.dart';
+import '../../providers/knowledge_provider.dart'; // !! 引入包含 allEventTypesStreamProvider 的文件 !!
+import 'add_edit_event_type_dialog.dart'; // !! 引入添加/编辑类型的对话框 !!
 
 class AddLogDialog extends ConsumerStatefulWidget {
   final int objectId;
@@ -29,114 +32,150 @@ class AddLogDialog extends ConsumerStatefulWidget {
 class _AddLogDialogState extends ConsumerState<AddLogDialog> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
-  final _eventTypeController = TextEditingController(); // 用于自定义事件类型
+  // 移除 _eventTypeController
+  // final _eventTypeController = TextEditingController();
 
-  DateTime _selectedDateTime = DateTime.now(); // 默认事件时间为当前
-  String? _selectedEventType; // 下拉选择的事件类型
-  final List<XFile> _selectedImages = []; // 存储选择的图片文件 (XFile)
-  final List<String> _savedImagePaths = []; // 存储保存后的图片路径
+  DateTime _selectedDateTime = DateTime.now();
+  String? _selectedEventType; // 保持不变，存储选中的事件类型名称
+  final List<XFile> _selectedImages = [];
+  final List<String> _savedImagePaths = [];
   bool _isSaving = false;
-  bool _showCustomEventTypeField = false; // 是否显示自定义事件输入框
+  // 移除 _showCustomEventTypeField
+  // bool _showCustomEventTypeField = false;
 
-  // 定义常见的事件类型供选择
-  List<String> get _commonEventTypes {
-    if (widget.objectType == ObjectType.plant) {
-      return ['浇水', '施肥', '换盆', '修剪', '光照变化', '病虫害', '其他'];
-    } else {
-      return [
-        '喂食',
-        '用药',
-        '疫苗',
-        '体内驱虫',
-        '体外驱虫',
-        '洗澡/美容',
-        '体重记录',
-        '行为观察',
-        '就诊',
-        '其他',
-      ];
-    }
-  }
+  // 移除 _commonEventTypes getter
+  // List<String> get _commonEventTypes { ... }
 
   @override
   void dispose() {
     _notesController.dispose();
-    _eventTypeController.dispose();
+    // 移除 _eventTypeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // !! 监听事件类型 Provider !!
+    final eventTypesAsync = ref.watch(allEventTypesStreamProvider);
+
     return AlertDialog(
       title: const Text('添加日志记录'),
       content: SingleChildScrollView(
-        // 使内容可滚动
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min, // 对话框高度自适应内容
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. 事件类型选择
-              DropdownButtonFormField<String>(
-                value: _selectedEventType,
-                hint: const Text('选择事件类型 *'),
-                items:
-                    _commonEventTypes.map((String type) {
-                      return DropdownMenuItem<String>(
-                        value: type,
-                        child: Text(type),
-                      );
-                    }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedEventType = newValue;
-                    // 如果选择“其他”，显示自定义输入框
-                    _showCustomEventTypeField = (newValue == '其他');
-                    if (!_showCustomEventTypeField) {
-                      _eventTypeController.clear(); // 清除非“其他”时的自定义内容
-                    }
-                  });
-                },
-                validator: (value) {
-                  if (value == null ||
-                      (value == '其他' &&
-                          _eventTypeController.text.trim().isEmpty)) {
-                    return '请选择或输入事件类型';
-                  }
-                  return null;
-                },
-                isExpanded: true, // 让下拉菜单展开
-              ),
-              // 2. 自定义事件类型输入框 (条件显示)
-              if (_showCustomEventTypeField)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: TextFormField(
-                    controller: _eventTypeController,
+              // 1. 事件类型选择 (从 Provider 加载)
+              eventTypesAsync.when(
+                data: (eventTypes) {
+                  // 准备下拉菜单项
+                  List<DropdownMenuItem<String>> items =
+                      eventTypes
+                          .map(
+                            (type) => DropdownMenuItem<String>(
+                              value: type.name, // 使用 name 作为值
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    type.iconCodepoint != null &&
+                                            type.iconFontFamily != null
+                                        ? IconData(
+                                          type.iconCodepoint!,
+                                          fontFamily: type.iconFontFamily!,
+                                        )
+                                        : Icons.label_outline, // Fallback icon
+                                    size: 18,
+                                    color: Colors.grey[700], // 统一颜色或根据类型颜色
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(type.name),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList();
+
+                  // 添加 "添加新类型..." 选项
+                  const String addNewValue = "___ADD_NEW_EVENT_TYPE___";
+                  items.add(
+                    const DropdownMenuItem<String>(
+                      value: addNewValue,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 18,
+                            color: Colors.blue,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "添加新类型...",
+                            style: TextStyle(color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+
+                  return DropdownButtonFormField<String>(
+                    value: _selectedEventType,
+                    hint: const Text('选择事件类型 *'),
+                    items: items,
+                    onChanged: (String? newValue) {
+                      if (newValue == addNewValue) {
+                        // 调用显示添加类型对话框的方法
+                        _showAddEditEventTypeDialog(context, ref);
+                        // 清除当前选择，因为新类型尚未添加
+                        setState(() {
+                          _selectedEventType = null;
+                        });
+                        // 注意：对话框关闭后，这个下拉菜单需要能反映出新添加的类型
+                        // 因为我们 watch 了 allEventTypesStreamProvider，它会自动重建
+                      } else {
+                        setState(() {
+                          _selectedEventType = newValue;
+                        });
+                      }
+                    },
+                    validator: (value) => value == null ? '请选择事件类型' : null,
+                    isExpanded: true,
                     decoration: const InputDecoration(
-                      hintText: '输入自定义事件类型 *',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(
                         vertical: 10.0,
                         horizontal: 12.0,
-                      ), // 调整内边距
+                      ),
                     ),
-                    validator: (value) {
-                      if (_showCustomEventTypeField &&
-                          (value == null || value.trim().isEmpty)) {
-                        return '请输入自定义事件类型';
-                      }
-                      return null;
-                    },
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                ),
+                  );
+                },
+                loading:
+                    () => const Padding(
+                      // 优化加载状态显示
+                      padding: EdgeInsets.symmetric(vertical: 20.0),
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                error:
+                    (err, stack) => Padding(
+                      // 优化错误状态显示
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: Text(
+                        '无法加载事件类型: $err',
+                        style: TextStyle(color: Colors.red[700]),
+                      ),
+                    ),
+              ),
+
+              // 2. 移除自定义事件输入框
+              // if (_showCustomEventTypeField) ...
               const SizedBox(height: 16),
-              // 3. 事件时间选择
+              // 3. 事件时间选择 (保持不变)
               _buildDateTimePicker(context),
               const SizedBox(height: 16),
-              // 4. 备注输入
+              // 4. 备注输入 (保持不变)
               TextFormField(
                 controller: _notesController,
                 decoration: const InputDecoration(
@@ -144,11 +183,11 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                   hintText: '记录一些细节...(可选)',
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 3, // 允许多行输入
+                maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 16),
-              // 5. 图片选择
+              // 5. 图片选择 (保持不变)
               _buildImageSelectionArea(),
             ],
           ),
@@ -157,8 +196,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
       actions: <Widget>[
         TextButton(
           child: const Text('取消'),
-          onPressed:
-              _isSaving ? null : () => Navigator.of(context).pop(), // 保存时禁用
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
         ),
         TextButton(
           child:
@@ -169,7 +207,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                   : const Text('保存'),
-          onPressed: _isSaving ? null : _saveLog, // 保存时禁用
+          onPressed: _isSaving ? null : _saveLog,
         ),
       ],
     );
@@ -178,6 +216,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
   // --- Helper Widgets for Form ---
 
   Widget _buildDateTimePicker(BuildContext context) {
+    // ... (代码保持不变) ...
     final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm');
     return InkWell(
       onTap: () async {
@@ -185,14 +224,16 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
           context: context,
           initialDate: _selectedDateTime,
           firstDate: DateTime(2000),
-          lastDate: DateTime.now().add(const Duration(days: 30)), // 允许选择未来一点时间
+          lastDate: DateTime.now().add(const Duration(days: 30)),
         );
-        if (pickedDate != null) {
+        if (pickedDate != null && mounted) {
+          // Check mounted
           final TimeOfDay? pickedTime = await showTimePicker(
             context: context,
             initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
           );
-          if (pickedTime != null) {
+          if (pickedTime != null && mounted) {
+            // Check mounted again
             setState(() {
               _selectedDateTime = DateTime(
                 pickedDate.year,
@@ -217,21 +258,19 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
   }
 
   Widget _buildImageSelectionArea() {
+    // ... (代码保持不变) ...
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('添加照片 (可选, 最多5张)', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         Wrap(
-          // 使用 Wrap 自动换行显示缩略图和添加按钮
-          spacing: 8.0, // 水平间距
-          runSpacing: 8.0, // 垂直间距
+          spacing: 8.0,
+          runSpacing: 8.0,
           children: [
-            // 显示已选图片缩略图
             ..._selectedImages
                 .map(
                   (image) => Stack(
-                    // 使用 Stack 添加删除按钮
                     alignment: Alignment.topRight,
                     children: [
                       Image.file(
@@ -241,13 +280,10 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                         fit: BoxFit.cover,
                       ),
                       InkWell(
-                        // 小删除按钮
-                        onTap: () {
-                          setState(() {
-                            _selectedImages.remove(image);
-                          });
-                        },
+                        onTap:
+                            () => setState(() => _selectedImages.remove(image)),
                         child: Container(
+                          /* ... close icon ... */
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.6),
@@ -264,11 +300,11 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                   ),
                 )
                 .toList(),
-            // 添加图片按钮 (限制数量，比如最多5张)
             if (_selectedImages.length < 5)
               GestureDetector(
                 onTap: _showLogImageSourceActionSheet,
                 child: Container(
+                  /* ... add photo button ... */
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
@@ -288,11 +324,14 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
     );
   }
 
-  // !! 新增: 显示图片来源选择 (用于日志)
+  // --- 图片来源选择和处理逻辑 ---
+
   void _showLogImageSourceActionSheet() {
+    // ... (代码保持不变) ...
     showModalBottomSheet(
-      context: context, // 使用当前的 context
-      builder: (BuildContext context) {
+      context: context,
+      builder: (BuildContext bc) {
+        // Renamed context to bc
         return SafeArea(
           child: Wrap(
             children: <Widget>[
@@ -301,7 +340,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                 title: const Text('从相册选择'),
                 onTap: () {
                   _addImagesFromSource(ImageSource.gallery);
-                  Navigator.of(context).pop();
+                  Navigator.of(bc).pop(); // Use bc here
                 },
               ),
               ListTile(
@@ -309,7 +348,7 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
                 title: const Text('拍照'),
                 onTap: () {
                   _addImagesFromSource(ImageSource.camera);
-                  Navigator.of(context).pop();
+                  Navigator.of(bc).pop(); // Use bc here
                 },
               ),
             ],
@@ -319,44 +358,54 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
     );
   }
 
-  // 修改图片获取逻辑，使其能处理单个或多个图片
   Future<void> _addImagesFromSource(ImageSource source) async {
-    // <--- 新的方法
+    // ... (代码保持不变) ...
     final ImagePicker picker = ImagePicker();
     List<XFile> pickedFiles = [];
+    final currentCount =
+        _selectedImages.length; // Get current count before picking
 
-    if (source == ImageSource.camera) {
-      // 拍照通常只返回一张图片
-      final XFile? image = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 1024,
-      );
-      if (image != null) {
-        pickedFiles.add(image);
-      }
-    } else {
-      // 从相册可以选择多张
-      // 计算还能选几张
-      final remainingSlots = 5 - _selectedImages.length;
-      if (remainingSlots > 0) {
-        pickedFiles = await picker.pickMultiImage(
-          imageQuality: 80,
-          maxWidth: 1024,
-        );
-        // 如果选多了，只取需要的数量
-        if (pickedFiles.length > remainingSlots) {
-          pickedFiles = pickedFiles.sublist(0, remainingSlots);
+    try {
+      // Add try-catch for picker errors
+      if (source == ImageSource.camera) {
+        if (currentCount < 5) {
+          final XFile? image = await picker.pickImage(
+            source: source,
+            imageQuality: 85,
+            maxWidth: 1024,
+          );
+          if (image != null) pickedFiles.add(image);
+        } else {
+          if (mounted)
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('最多只能添加5张照片')));
+          return;
         }
       } else {
-        // 提示用户已达上限
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('最多只能添加5张照片')));
+        final remainingSlots = 5 - currentCount;
+        if (remainingSlots > 0) {
+          pickedFiles = await picker.pickMultiImage(
+            imageQuality: 80,
+            maxWidth: 1024,
+          );
+          if (pickedFiles.length > remainingSlots) {
+            pickedFiles = pickedFiles.sublist(0, remainingSlots);
+          }
+        } else {
+          if (mounted)
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('最多只能添加5张照片')));
+          return;
         }
-        return; // 不再继续
       }
+    } catch (e) {
+      print("Error picking images: $e");
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择图片失败: $e'), backgroundColor: Colors.red),
+        );
     }
 
     if (pickedFiles.isNotEmpty && mounted) {
@@ -366,101 +415,144 @@ class _AddLogDialogState extends ConsumerState<AddLogDialog> {
     }
   }
 
-  // --- Logic ---
-
-  Future<void> _pickImages() async {
-    final ImagePicker picker = ImagePicker();
-    // 一次选择多张图片
-    final List<XFile> images = await picker.pickMultiImage(
-      imageQuality: 80, // 适当压缩图片质量
-      maxWidth: 1024, // 限制最大宽度
-    );
-
-    if (images.isNotEmpty) {
-      setState(() {
-        // 限制总数
-        final remainingSlots = 5 - _selectedImages.length;
-        _selectedImages.addAll(images.take(remainingSlots));
-      });
-    }
-  }
-
+  // --- 保存逻辑 ---
   Future<void> _saveLog() async {
-    if (_isSaving) return;
+    print("==> START _saveLog");
+    if (_isSaving) {
+      print("    Aborted: Already saving.");
+      return;
+    }
 
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+    final bool isValid = _formKey.currentState?.validate() ?? false;
+    print("    Form validation result: $isValid");
 
+    if (isValid) {
+      print("    Selected Event Type before saving: $_selectedEventType");
+      if (_selectedEventType == null) {
+        print("    Aborted: _selectedEventType is null.");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请选择事件类型'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      if (!mounted) return;
       setState(() {
         _isSaving = true;
       });
+      print("    Set _isSaving = true");
 
       final db = ref.read(databaseProvider);
-      final String eventType =
-          (_selectedEventType == '其他'
-              ? _eventTypeController.text.trim()
-              : _selectedEventType)!;
+      final String eventType = _selectedEventType!;
 
-      // 1. 保存图片到应用目录 (异步)
+      print("--> BEFORE _saveImagesToAppDirectory");
       await _saveImagesToAppDirectory();
+      print("<-- AFTER _saveImagesToAppDirectory");
 
-      // 2. 创建 LogEntriesCompanion
+      print("    Creating LogEntriesCompanion with eventType: $eventType");
+
+      // !! 修改 Value.ofNullable 的使用 !!
+      final notesText = _notesController.text.trim();
+      final photosJson =
+          _savedImagePaths.isNotEmpty ? jsonEncode(_savedImagePaths) : null;
+
       final logCompanion = LogEntriesCompanion(
         objectId: Value(widget.objectId),
         objectType: Value(widget.objectType),
         eventType: Value(eventType),
         eventDateTime: Value(_selectedDateTime),
-        notes: Value(_notesController.text.trim()),
-        // 将图片路径列表 JSON 编码后存储
-        photoPaths: Value(
-          _savedImagePaths.isNotEmpty ? jsonEncode(_savedImagePaths) : null,
-        ),
-        creationDate: Value(DateTime.now()), // 记录创建时间
+        // 如果 notesText 不为空，则使用 Value(notesText)，否则使用 const Value(null)
+        notes: notesText.isNotEmpty ? Value(notesText) : const Value(null),
+        // 如果 photosJson 不为空，则使用 Value(photosJson)，否则使用 const Value(null)
+        photoPaths: photosJson != null ? Value(photosJson) : const Value(null),
+        creationDate: Value(DateTime.now().toUtc()),
       );
 
       try {
-        // 3. 插入数据库
+        print("--> BEFORE db.insertLogEntry");
         await db.insertLogEntry(logCompanion);
+        print("<-- AFTER db.insertLogEntry");
 
-        // 4. 关闭对话框
-        if (mounted) Navigator.of(context).pop(true); // 返回 true 表示成功
-
-        // 5. 显示成功提示 (可以在详情页显示)
-        // ScaffoldMessenger.of(context).showSnackBar(...)
-      } catch (e) {
-        print('Error saving log: $e');
+        if (mounted) {
+          print("    Attempting to pop dialog (Success)");
+          Navigator.of(context).pop(true);
+          print("    Dialog popped successfully.");
+        } else {
+          print("    Save successful, but widget unmounted before pop.");
+        }
+      } catch (e, s) {
+        print("!!!!! ERROR saving log: $e");
+        print("!!!!! StackTrace: $s");
         if (mounted) {
           setState(() {
             _isSaving = false;
-          }); // 出错时允许重试
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('保存日志失败: $e'), backgroundColor: Colors.red),
           );
         }
       }
-      // finally block not strictly needed here as pop() handles state update if successful
+      // finally block might not be strictly needed if catch handles _isSaving reset
+    } else {
+      print("    Form validation failed.");
+      if (mounted && _isSaving) {
+        setState(() => _isSaving = false);
+      }
     }
+    print("<== END _saveLog");
   }
 
   Future<void> _saveImagesToAppDirectory() async {
-    _savedImagePaths.clear(); // 清空旧路径
+    // ... (代码保持不变, 确保文件名唯一) ...
+    _savedImagePaths.clear();
     if (_selectedImages.isEmpty) return;
-
     final Directory appDir = await getApplicationDocumentsDirectory();
     for (final imageXFile in _selectedImages) {
       final String extension = p.extension(imageXFile.path);
-      // 用日志关联的对象ID和时间戳生成文件名
       final String fileName =
           'log_${widget.objectId}_${DateTime.now().millisecondsSinceEpoch}_${_savedImagePaths.length}$extension';
       final String savedPath = p.join(appDir.path, fileName);
       try {
         print('Attempting to save image to: $savedPath');
+        // Use saveTo for XFile
         await imageXFile.saveTo(savedPath);
         _savedImagePaths.add(savedPath);
         print('Successfully saved image: $savedPath');
       } catch (e) {
         print("Error saving file $fileName using saveTo: $e");
+        // Optionally inform user about the specific image failure
       }
     }
   }
-}
+
+  // !! 新增: 显示添加/编辑事件类型对话框的方法 !!
+  Future<void> _showAddEditEventTypeDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    CustomEventType? eventTypeToEdit,
+  }) async {
+    // Show the separate dialog widget
+    final bool? result = await showDialog<bool>(
+      context: context,
+      // barrierDismissible: false, // Prevent dismissing by tapping outside? Optional.
+      builder: (_) => AddEditEventTypeDialog(existingType: eventTypeToEdit),
+    );
+
+    // The stream provider `allEventTypesStreamProvider` will automatically
+    // update the dropdown list if the dialog successfully adds/edits a type
+    // because the underlying database changed. No manual refresh needed here.
+    if (result == false && mounted) {
+      // 注意检查 mounted
+      // 这里显示的 SnackBar 会使用 AddLogDialog 的 ScaffoldMessenger
+      // 如果 AddLogDialog 本身就有问题，还需要进一步处理
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("保存事件类型失败（可能名称已存在）"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else if (result == true) {
+      print("Event type dialog returned success.");
+    }
+  }
+} // End of _AddLogDialogState

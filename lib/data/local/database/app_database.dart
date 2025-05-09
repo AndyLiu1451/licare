@@ -1,5 +1,8 @@
+// lib/data/local/database/app_database.dart
 import 'dart:io';
 import 'package:drift/drift.dart';
+import 'package:flutter/material.dart'
+    hide Table; // !! 需要引入 Material 用于 Icons !!
 import 'package:path/path.dart' as p;
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,64 +14,189 @@ import 'package:plant_pet_log/models/enum.dart'; // 引入枚举
 part 'app_database.g.dart';
 
 // 定义数据库类，使用 @DriftDatabase 注解
-@DriftDatabase(tables: [Plants, Pets, LogEntries, Reminders])
+// !! 更新注解，包含 CustomEventTypes 表 !!
+@DriftDatabase(tables: [Plants, Pets, LogEntries, Reminders, CustomEventTypes])
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase 是 build_runner 生成的类
   AppDatabase() : super(_openConnection());
 
-  // schemaVersion 用于数据库迁移
+  // !! schemaVersion 递增为 2 !!
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   // 定义数据库升级迁移逻辑 (如果未来版本变化)
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
-      await m.createAll();
-      // --- 临时添加测试数据 ---
-      // 注意： Drift 生成的 Companion 类用于插入和更新
-      await batch((batch) {
-        batch.insertAll(plants, [
-          PlantsCompanion.insert(
-            name: '绿萝',
-            nickname: const Value('小绿'),
-            creationDate: DateTime.now(),
-            species: const Value('Epipremnum aureum'),
-            room: const Value('客厅'),
-          ),
-          PlantsCompanion.insert(
-            name: '多肉拼盘',
-            creationDate: DateTime.now().subtract(const Duration(days: 30)),
-          ),
-        ]);
-        batch.insertAll(pets, [
-          PetsCompanion.insert(
-            name: '旺财',
-            nickname: const Value('狗子'),
-            creationDate: DateTime.now(),
-            species: const Value('犬'),
-            breed: const Value('中华田园犬'),
-            birthDate: Value(DateTime(2022, 5, 1)),
-            gender: Value(Gender.male), // 使用 Value 包裹可空枚举
-          ),
-          PetsCompanion.insert(
-            name: '咪咪',
-            creationDate: DateTime.now().subtract(const Duration(days: 100)),
-            species: const Value('猫'),
-            breed: const Value('英短蓝猫'),
-            gender: Value(Gender.female),
-          ),
-        ]);
-      });
-      // --- 测试数据结束 ---
+      print("Database onCreate: Creating all tables..."); // 添加日志
+      await m.createAll(); // 创建所有表 (包括新的 CustomEventTypes)
+      print("Database onCreate: All tables created."); // 添加日志
+      // 在 onCreate 中插入预设事件类型
+      print("Database onCreate: Inserting preset event types..."); // 添加日志
+      await _insertPresetEventTypes(this); // 传入 this (AppDatabase 实例)
+      print("Database onCreate: Preset event types inserted."); // 添加日志
+      // 不再需要插入测试数据
+      // await _insertTestData(this);
     },
     onUpgrade: (Migrator m, int from, int to) async {
-      print("Running migration from $from to $to"); // Log migration
-      if (from == 1 && to >= 2) {}
+      print(
+        "Database onUpgrade: Running migration from $from to $to",
+      ); // Log migration
+      if (from < 2) {
+        // 如果是从版本 1 升级到 2 或更高
+        print("Database onUpgrade: Adding CustomEventTypes table..."); // 添加日志
+        await m.createTable(customEventTypes); // 创建新表
+        print("Database onUpgrade: CustomEventTypes table added."); // 添加日志
+        // 在 onUpgrade 中也插入预设类型 (以防旧用户升级)
+        print(
+          "Database onUpgrade: Inserting preset event types for upgraded user...",
+        ); // 添加日志
+        await _insertPresetEventTypes(this); // 传入 this
+        print(
+          "Database onUpgrade: Preset event types inserted for upgraded user.",
+        ); // 添加日志
+      }
+      // Add other migration steps here if needed for future versions
     },
   );
 
-  // --- Plant 相关操作 ---
+  /// Helper method to insert preset event types.
+  /// Must be static or accept the database instance if called from migration.
+  static Future<void> _insertPresetEventTypes(AppDatabase db) async {
+    print("Executing _insertPresetEventTypes..."); // 添加日志
+    // 使用 batch 提高效率
+    await db.batch((batch) {
+      // Define preset types for plants
+      final List<CustomEventTypesCompanion> plantPresets = [
+        // 使用 Value() 包裹非空值，使用 const Value(null) 或省略表示空值 (如果列允许)
+        CustomEventTypesCompanion.insert(
+          name: '浇水',
+          iconCodepoint: Value(Icons.water_drop_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '施肥',
+          iconCodepoint: Value(Icons.eco_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '换盆',
+          iconCodepoint: Value(Icons.yard_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '修剪',
+          iconCodepoint: Value(Icons.cut_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '光照变化',
+          iconCodepoint: Value(Icons.lightbulb_outline.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '病虫害',
+          iconCodepoint: Value(Icons.bug_report_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+      ];
+      // Define preset types for pets
+      final List<CustomEventTypesCompanion> petPresets = [
+        CustomEventTypesCompanion.insert(
+          name: '喂食',
+          iconCodepoint: Value(Icons.restaurant_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '用药',
+          iconCodepoint: Value(Icons.medical_services_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '疫苗',
+          iconCodepoint: Value(Icons.vaccines_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '体内驱虫',
+          iconCodepoint: Value(Icons.medication_liquid_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '体外驱虫',
+          iconCodepoint: Value(
+            Icons.bug_report_outlined.codePoint,
+          ), // Re-use bug icon or find another
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '洗澡/美容',
+          iconCodepoint: Value(Icons.bathtub_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '体重记录',
+          iconCodepoint: Value(Icons.scale_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '行为观察',
+          iconCodepoint: Value(Icons.visibility_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+        CustomEventTypesCompanion.insert(
+          name: '就诊',
+          iconCodepoint: Value(Icons.local_hospital_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+      ];
+      // Define a generic "Other" type
+      final List<CustomEventTypesCompanion> genericPreset = [
+        CustomEventTypesCompanion.insert(
+          name: '其他',
+          iconCodepoint: Value(Icons.notes_outlined.codePoint),
+          iconFontFamily: Value('MaterialIcons'),
+          isPreset: const Value(true),
+        ),
+      ];
+
+      // Use insertAll with mode InsertMode.insertOrIgnore to avoid errors if already inserted
+      batch.insertAll(
+        db.customEventTypes,
+        plantPresets,
+        mode: InsertMode.insertOrIgnore,
+      );
+      batch.insertAll(
+        db.customEventTypes,
+        petPresets,
+        mode: InsertMode.insertOrIgnore,
+      );
+      batch.insertAll(
+        db.customEventTypes,
+        genericPreset,
+        mode: InsertMode.insertOrIgnore,
+      );
+      print("Batch insert for presets prepared."); // 添加日志
+    });
+    print("_insertPresetEventTypes execution finished."); // 添加日志
+  }
+
+  // --- Plant 相关操作 (保持不变) ---
   Future<List<Plant>> getAllPlants() => select(plants).get();
   Stream<List<Plant>> watchAllPlants() => select(plants).watch();
   Future<int> insertPlant(PlantsCompanion plant) => into(plants).insert(plant);
@@ -77,7 +205,7 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deletePlant(int id) =>
       (delete(plants)..where((tbl) => tbl.id.equals(id))).go();
 
-  // --- Pet 相关操作 ---
+  // --- Pet 相关操作 (保持不变) ---
   Future<List<Pet>> getAllPets() => select(pets).get();
   Stream<List<Pet>> watchAllPets() => select(pets).watch();
   Future<int> insertPet(PetsCompanion pet) => into(pets).insert(pet);
@@ -85,7 +213,7 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deletePet(int id) =>
       (delete(pets)..where((tbl) => tbl.id.equals(id))).go();
 
-  // --- LogEntry 相关操作 ---
+  // --- LogEntry 相关操作 (保持不变) ---
   Stream<List<LogEntry>> watchLogsForObject(int objectId, ObjectType type) {
     return (select(logEntries)
           ..where(
@@ -109,7 +237,7 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteLogEntry(int id) =>
       (delete(logEntries)..where((tbl) => tbl.id.equals(id))).go();
 
-  // --- Reminder 相关操作 ---
+  // --- Reminder 相关操作 (保持不变) ---
   Stream<List<Reminder>> watchActiveReminders() {
     return (select(reminders)
           ..where((tbl) => tbl.isActive.equals(true))
@@ -117,7 +245,6 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
-  // 获取所有提醒，包括非激活的，用于管理
   Stream<List<Reminder>> watchAllReminders() {
     return (select(reminders)
       ..orderBy([(t) => OrderingTerm(expression: t.nextDueDate)])).watch();
@@ -131,7 +258,6 @@ class AppDatabase extends _$AppDatabase {
       update(reminders).replace(reminder);
   Future<int> deleteReminder(int id) =>
       (delete(reminders)..where((tbl) => tbl.id.equals(id))).go();
-  // 可能还需要一个方法来获取特定对象的所有提醒
   Stream<List<Reminder>> watchRemindersForObject(
     int objectId,
     ObjectType type,
@@ -145,15 +271,96 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(t) => OrderingTerm(expression: t.nextDueDate)]))
         .watch();
   }
+
+  // !! ================================================ !!
+  // !! 新增: CustomEventType DAO Methods !!
+  // !! ================================================ !!
+
+  /// Watches all custom event types (preset and user-defined), ordered by name.
+  Stream<List<CustomEventType>> watchAllEventTypes() {
+    print("Watching all event types..."); // 添加日志
+    // Optionally order by a displayOrder column if added later
+    return (select(customEventTypes)
+      ..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
+  }
+
+  /// Gets all custom event types (preset and user-defined), ordered by name.
+  Future<List<CustomEventType>> getAllEventTypes() {
+    print("Getting all event types..."); // 添加日志
+    return (select(customEventTypes)
+      ..orderBy([(t) => OrderingTerm(expression: t.name)])).get();
+  }
+
+  /// Inserts a new custom event type. Ensures `isPreset` is false.
+  Future<int> insertEventType(CustomEventTypesCompanion eventType) {
+    // Ensure name is unique (handled by DB constraint)
+    // Force isPreset to false for user-added types
+    final companion = eventType.copyWith(isPreset: const Value(false));
+    print("Inserting new event type: ${companion.name.value}"); // 添加日志
+    return into(customEventTypes).insert(companion);
+  }
+
+  /// Updates an existing event type.
+  /// Note: Logic to prevent editing preset names should be in the UI or service layer.
+  Future<bool> updateEventType(CustomEventTypesCompanion eventType) {
+    print("Updating event type ID: ${eventType.id.value}"); // 添加日志
+    return update(customEventTypes).replace(eventType);
+  }
+
+  /// Deletes a custom event type only if it's not a preset type.
+  Future<int> deleteEventType(int id) {
+    print("Attempting to delete event type ID: $id"); // 添加日志
+    // The WHERE clause prevents deleting preset types at the database level
+    return (delete(customEventTypes)..where(
+      (tbl) => tbl.id.equals(id) & tbl.isPreset.equals(false),
+    )) // Ensures only non-presets are deleted
+    .go().then((rowCount) {
+      // 添加日志显示结果
+      if (rowCount > 0) {
+        print("Deleted event type ID: $id successfully.");
+      } else {
+        print("Event type ID: $id not deleted (either not found or preset).");
+      }
+      return rowCount;
+    });
+  }
+
+  /// Helper to get icon data for a specific event type name.
+  /// Returns `TypedIconData` or null if not found.
+  Future<TypedIconData?> getIconForEventType(String eventTypeName) async {
+    // print("Getting icon for event type name: $eventTypeName"); // Log might be too frequent
+    final type =
+        await (select(customEventTypes)
+          ..where((tbl) => tbl.name.equals(eventTypeName))).getSingleOrNull();
+
+    if (type != null &&
+        type.iconCodepoint != null &&
+        type.iconFontFamily != null) {
+      // print("Icon found for $eventTypeName: ${type.iconCodepoint}");
+      return TypedIconData(
+        IconData(type.iconCodepoint!, fontFamily: type.iconFontFamily!),
+        // color: type.colorHex != null ? Color(int.parse(type.colorHex!, radix: 16)) : null,
+      );
+    }
+    // print("Icon not found for $eventTypeName, returning default.");
+    // Fallback icon if not found or no icon defined
+    return TypedIconData(Icons.label_outline); // Use a consistent default icon
+  }
+} // End of AppDatabase class
+
+/// Helper class to potentially bundle IconData with other info like color in the future.
+class TypedIconData {
+  final IconData iconData;
+  final Color? color; // Example: Add color property if needed
+  TypedIconData(this.iconData, {this.color});
 }
 
-// 定义数据库连接
+// Defines the database connection.
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory(); // 获取应用文档目录
-    final file = File(
-      p.join(dbFolder.path, 'plant_pet_log_db.sqlite'),
-    ); // 数据库文件名
-    return NativeDatabase(file); // 创建数据库连接
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'plant_pet_log_db.sqlite'));
+    print("Opening database at: ${file.path}"); // 添加日志
+    return NativeDatabase(file);
   });
 }

@@ -7,18 +7,13 @@ import 'package:plant_pet_log/presentation/screens/reminders/reminders_list_scre
 import 'package:rrule/rrule.dart'; // Use rrule package
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
-// Hide Column from drift
 import 'package:drift/drift.dart' hide Column;
-// Import collection package
 import 'package:collection/collection.dart';
-
+import '../../../l10n/app_localizations.dart';
 import '../../../data/local/database/app_database.dart';
-import '../../../models/enum.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/object_providers.dart';
 import '../../../services/notification_service.dart';
-import '../../../providers/list_filter_providers.dart';
-// Ensure the screen name is correct for navigation
 import '../reminders/reminders_list_screen.dart';
 
 // Enum for UI selection
@@ -132,7 +127,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('加载关联对象列表失败: $error'),
+          content: Text('Loading relation objects list failed: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -147,16 +142,13 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
   }
 
   Future<void> _loadReminderData() async {
-    print(
-      "[AddEditReminderScreen] _loadReminderData START",
-    ); // <--- Log Load Start
+    print("[AddEditReminderScreen] _loadReminderData START");
     if (!widget.isEditing || widget.reminderId == null || _initialDataLoaded) {
-      print(
-        "[AddEditReminderScreen] _loadReminderData - Skipped (isEditing=${widget.isEditing}, id=${widget.reminderId}, loaded=$_initialDataLoaded)",
-      );
       if (mounted) setState(() => _isLoading = false);
       return;
     }
+    // !! 获取 l10n !!
+    final l10n = AppLocalizations.of(context)!;
     try {
       tz_data.initializeTimeZones();
     } catch (_) {}
@@ -164,18 +156,10 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
     try {
       final db = ref.read(databaseProvider);
-      print(
-        "[AddEditReminderScreen] _loadReminderData - Getting reminder from DB",
-      ); // <--- Log DB Get Start
       final reminder = await db.getReminder(widget.reminderId!);
-      print(
-        "[AddEditReminderScreen] _loadReminderData - Got reminder: ${reminder != null}",
-      ); // <--- Log DB Get End
       if (reminder != null && mounted) {
         setState(() {
-          print(
-            "[AddEditReminderScreen] _loadReminderData - Setting state",
-          ); // <--- Log SetState Start
+          print("[AddEditReminderScreen] Setting state from loaded data");
           _taskNameController.text = reminder.taskName;
           _notesController.text = reminder.notes ?? '';
           _nextDueDate = tz.TZDateTime.from(reminder.nextDueDate, location);
@@ -185,24 +169,21 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             (obj) =>
                 obj.id == reminder.objectId && obj.type == reminder.objectType,
           );
-          if (_selectedObject == null) {
+          if (_selectedObject == null)
             print(
               "[AddEditReminderScreen] Warning: Associated object not found.",
             );
-          }
           _parseFrequencyRule(reminder.frequencyRule);
           _initialDataLoaded = true;
-          _isLoading = false; // Loading finished
-          print(
-            "[AddEditReminderScreen] _loadReminderData - Setting state END",
-          ); // <--- Log SetState End
+          _isLoading = false;
         });
       } else if (mounted) {
-        print(
-          "[AddEditReminderScreen] _loadReminderData - Reminder not found or unmounted",
-        );
+        print("[AddEditReminderScreen] Reminder not found or unmounted");
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('找不到提醒数据'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.errorNotFound),
+            backgroundColor: Colors.red,
+          ), // !! 使用 l10n !!
         );
         context.pop();
         setState(() {
@@ -211,12 +192,13 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
         });
       }
     } catch (e) {
-      print(
-        "[AddEditReminderScreen] Error loading reminder data: $e",
-      ); // <--- Log Load Error
+      print("[AddEditReminderScreen] Error loading reminder data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载提醒数据失败: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(l10n.loadingFailed(e.toString())),
+            backgroundColor: Colors.red,
+          ), // !! 使用 l10n !!
         );
         context.pop();
         setState(() {
@@ -225,7 +207,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
         });
       }
     }
-    print("[AddEditReminderScreen] _loadReminderData END"); // <--- Log Load End
+    print("[AddEditReminderScreen] _loadReminderData END");
   }
 
   // Parse RRULE string from DB into UI state
@@ -323,10 +305,9 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
   // --- UI Building ---
   @override
   Widget build(BuildContext context) {
-    print(
-      "[AddEditReminderScreen] build START (isLoading: $_isLoading, initialDataLoaded: $_initialDataLoaded, isSaving: $_isSaving)",
-    ); // <--- Log build
-    final title = widget.isEditing ? '编辑提醒' : '添加提醒';
+    final l10n = AppLocalizations.of(context)!;
+
+    final title = widget.isEditing ? l10n.editReminder : l10n.addReminder; // !!
     final bool canBuildForm = _initialDataLoaded;
 
     return Scaffold(
@@ -346,37 +327,21 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                         ),
                       )
                       : const Icon(Icons.save),
-              tooltip: '保存',
+              tooltip: l10n.save,
               // !! Add Log in onPressed !!
-              onPressed:
-                  _isSaving
-                      ? null
-                      : () {
-                        print(
-                          "[AddEditReminderScreen] Save button tapped! _isSaving is $_isSaving",
-                        ); // <--- Log Button Tap
-                        if (!_isSaving) {
-                          // Double check _isSaving before calling
-                          _saveReminder();
-                        } else {
-                          print(
-                            "[AddEditReminderScreen] Save button tapped but _isSaving was true!",
-                          );
-                        }
-                      },
+              onPressed: _isSaving ? null : () => _saveReminder(l10n),
             ),
         ],
       ),
       body:
           _isLoading || !canBuildForm
               ? const Center(child: CircularProgressIndicator())
-              : _buildFormContent(),
+              : _buildFormContent(l10n),
     );
-    print("[AddEditReminderScreen] build END"); // <--- Log build End
   }
 
   // Builds the main form content
-  Widget _buildFormContent() {
+  Widget _buildFormContent(AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Form(
@@ -389,7 +354,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             if (_cachedSelectableObjects.isNotEmpty)
               DropdownButtonFormField<SelectableObject>(
                 value: _selectedObject,
-                hint: const Text('关联对象 *'),
+                hint: const Text('Associated Object *'),
                 items:
                     _cachedSelectableObjects
                         .map(
@@ -403,7 +368,11 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                 onChanged:
                     (SelectableObject? newValue) =>
                         setState(() => _selectedObject = newValue),
-                validator: (value) => value == null ? '请选择关联对象' : null,
+                validator:
+                    (value) =>
+                        value == null
+                            ? 'Please select associated object'
+                            : null,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
               )
             // Show message only if NOT loading AND objects are empty AND initial load attempt finished
@@ -411,7 +380,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
               const Padding(
                 padding: EdgeInsets.only(bottom: 16.0),
                 child: Text(
-                  "没有可关联的对象。请先添加植物或宠物。",
+                  "No objects available...,please add plants or pets first",
                   style: TextStyle(color: Colors.red),
                 ),
               ),
@@ -420,37 +389,37 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             TextFormField(
               controller: _taskNameController,
               decoration: const InputDecoration(
-                labelText: '任务名称 *',
-                hintText: '例如：浇水、喂食',
+                labelText: 'Task Name *',
+                hintText: 'e.g. Watering, Feeding...',
                 border: OutlineInputBorder(),
               ),
               validator:
                   (value) =>
                       (value == null || value.trim().isEmpty)
-                          ? '任务名称不能为空'
+                          ? 'Task name cannot be empty'
                           : null,
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 16),
             // 3. Next Due Date/Time
-            _buildDateTimePicker(context),
+            _buildDateTimePicker(context, l10n),
             const SizedBox(height: 16),
             // 4. Frequency Selection
-            _buildFrequencySelector(),
+            _buildFrequencySelector(l10n),
             // Conditional Options based on _selectedFrequency
             if (_selectedFrequency == ReminderFrequency.weekly)
-              _buildWeeklyDaySelector(),
+              _buildWeeklyDaySelector(l10n), // !! 传递 l10n !!
             if (_selectedFrequency == ReminderFrequency.monthly)
-              _buildMonthlyDaySelector(),
+              _buildMonthlyDaySelector(l10n), // !! 传递 l10n !!
             if (_selectedFrequency == ReminderFrequency.custom)
-              _buildCustomIntervalSelector(),
+              _buildCustomIntervalSelector(l10n),
             const SizedBox(height: 16),
             // 5. Notes
             TextFormField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: '备注',
-                hintText: '(可选)',
+              decoration: InputDecoration(
+                labelText: l10n.notes, // !! 使用 l10n !!
+                hintText: l10n.optional,
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
@@ -459,7 +428,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             const SizedBox(height: 16),
             // 6. Active Status Switch
             SwitchListTile(
-              title: const Text('激活提醒'),
+              title: const Text('Activate Reminder'),
               value: _isActive,
               onChanged: (bool value) => setState(() => _isActive = value),
               secondary: Icon(
@@ -475,10 +444,10 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                 child: TextButton.icon(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text(
-                    '删除提醒',
+                    'Delete Reminder',
                     style: TextStyle(color: Colors.red),
                   ),
-                  onPressed: _isSaving ? null : _confirmDelete,
+                  onPressed: _isSaving ? null : () => _confirmDelete(l10n),
                 ),
               ),
           ],
@@ -489,10 +458,9 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
   // --- Form Field Builder Widgets ---
   // (These methods remain unchanged)
-  Widget _buildDateTimePicker(BuildContext context) {
+  Widget _buildDateTimePicker(BuildContext context, AppLocalizations l10n) {
     /* ... */
     final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm');
-    final displayDate = _nextDueDate;
     return InkWell(
       onTap: () async {
         /* ... date/time picker logic ... */
@@ -531,7 +499,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       },
       child: InputDecorator(
         decoration: const InputDecoration(
-          labelText: '下次执行时间 *',
+          labelText: 'Next Due Time  *',
           border: OutlineInputBorder(),
           suffixIcon: Icon(Icons.calendar_today),
         ),
@@ -540,12 +508,12 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
     );
   }
 
-  Widget _buildFrequencySelector() {
+  Widget _buildFrequencySelector(AppLocalizations l10n) {
     /* ... */
     return DropdownButtonFormField<ReminderFrequency>(
       value: _selectedFrequency,
       decoration: const InputDecoration(
-        labelText: '重复频率',
+        labelText: 'Repeat Frequency',
         border: OutlineInputBorder(),
       ),
       items:
@@ -553,19 +521,19 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             String text;
             switch (freq) {
               case ReminderFrequency.once:
-                text = '仅一次';
+                text = 'Once';
                 break;
               case ReminderFrequency.daily:
-                text = '每天';
+                text = 'Daily';
                 break;
               case ReminderFrequency.weekly:
-                text = '每周';
+                text = 'Weekly';
                 break;
               case ReminderFrequency.monthly:
-                text = '每月';
+                text = 'Monthly';
                 break;
               case ReminderFrequency.custom:
-                text = '自定义间隔';
+                text = 'Custom Interval';
                 break;
             }
             return DropdownMenuItem<ReminderFrequency>(
@@ -584,14 +552,14 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
     );
   }
 
-  Widget _buildWeeklyDaySelector() {
+  Widget _buildWeeklyDaySelector(AppLocalizations l10n) {
     /* ... */
     const List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: '选择星期几 *',
+          labelText: 'Select Day(s) of Week  *',
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(
             vertical: 0,
@@ -628,38 +596,39 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
     );
   }
 
-  Widget _buildMonthlyDaySelector() {
-    /* ... */
+  Widget _buildMonthlyDaySelector(AppLocalizations l10n) {
+    // !! 接收 l10n !!
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: DropdownButtonFormField<int>(
         value: _monthlyDay,
+        // TODO: Add key for 'Select Day of Month *'
         decoration: const InputDecoration(
-          labelText: '选择日期 *',
+          labelText: 'Select Day of Month  *',
           border: OutlineInputBorder(),
-        ),
+        ), // !! (需要添加 key) !!
         items:
-            List<int>.generate(31, (i) => i + 1)
-                .map(
-                  (int day) =>
-                      DropdownMenuItem<int>(value: day, child: Text('$day 号')),
-                )
-                .toList(),
-        onChanged: (int? newValue) {
-          if (newValue != null) setState(() => _monthlyDay = newValue);
-        },
-        validator: (value) {
-          if (_selectedFrequency == ReminderFrequency.monthly &&
-              value == null) {
-            return '请选择日期';
-          }
-          return null;
-        },
+            List<int>.generate(31, (i) => i + 1).map((int day) {
+              // TODO: Add key for '{day}th' / 'Day {day}'
+              return DropdownMenuItem<int>(
+                value: day,
+                child: Text('$day 号'),
+              ); // !! (需要添加 key/格式化) !!
+            }).toList(),
+        onChanged:
+            (int? newValue) => setState(() => _monthlyDay = newValue ?? 1),
+        // TODO: Add key for 'Please select a day'
+        validator:
+            (value) =>
+                (_selectedFrequency == ReminderFrequency.monthly &&
+                        value == null)
+                    ? 'Please select a day'
+                    : null, // !! (需要添加 key) !!
       ),
     );
   }
 
-  Widget _buildCustomIntervalSelector() {
+  Widget _buildCustomIntervalSelector(AppLocalizations l10n) {
     /* ... */
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
@@ -668,7 +637,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 15.0),
-            child: Text("每隔 "),
+            child: Text("Every "),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -690,7 +659,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                       value.isEmpty ||
                       int.tryParse(value) == null ||
                       int.parse(value) < 1) {
-                    return '输入>0数字';
+                    return 'Enter >0 number';
                   }
                 }
                 return null;
@@ -714,13 +683,13 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                     String text;
                     switch (unit) {
                       case 'days':
-                        text = '天';
+                        text = 'days';
                         break;
                       case 'weeks':
-                        text = '周';
+                        text = 'weeks';
                         break;
                       case 'months':
-                        text = '月';
+                        text = 'months';
                         break;
                       default:
                         text = unit;
@@ -824,7 +793,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
   }
 
   // Save reminder data
-  Future<void> _saveReminder() async {
+  Future<void> _saveReminder(AppLocalizations l10n) async {
     // Double check saving state at the very beginning
     if (_isSaving) {
       print("[AddEditReminderScreen] _saveReminder aborted: Already saving.");
@@ -853,7 +822,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
           !_weeklyDaysSelected.contains(true)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('请至少选择一个星期几用于每周重复'),
+            content: Text('Please select at least one weekday'),
             backgroundColor: Colors.red,
           ),
         );
@@ -958,9 +927,9 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
         if (savedReminder != null) {
           // --- 时区转换，准备传递给通知服务 ---
-          try {
-            tz_data.initializeTimeZones();
-          } catch (_) {}
+
+          tz_data.initializeTimeZones();
+
           final location = tz.local;
           // 从 DB 读取的 UTC DateTime
           final DateTime nextDueUtcFromDb = savedReminder.nextDueDate;
@@ -1026,76 +995,46 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             if (context.canPop()) {
               context.pop(); // Pop only on success
             } else {
-              print(
-                "[AddEditReminderScreen] Warning: context.canPop() returned false after successful save.",
-              );
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.errorNotFound),
+                    backgroundColor: Colors.red,
+                  ),
+                ); // !! 使用 l10n (可能需要更具体的错误) !!
             }
-          } else {
-            print(
-              "[AddEditReminderScreen] Saving reminder: Success, but widget unmounted before pop.",
-            );
-          }
-        } else {
-          print(
-            "[AddEditReminderScreen] Saving reminder: Failed to retrieve reminder after save.",
-          );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('保存后未能检索提醒，请重试'),
-                backgroundColor: Colors.red,
-              ),
-            );
           }
         }
       } catch (e) {
-        print(
-          "[AddEditReminderScreen] Error during DB/Notification operation: $e",
-        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('保存提醒失败: $e'), backgroundColor: Colors.red),
-          );
-        }
-      } finally {
-        print(
-          "[AddEditReminderScreen] Saving reminder: FINALLY block (Success: $saveSuccess, Mounted: $mounted)",
-        );
-        // Only call setState to reset _isSaving if the operation failed AND the widget is still mounted.
-        if (mounted && !saveSuccess) {
-          print(
-            "[AddEditReminderScreen] Saving reminder: Resetting _isSaving state due to failure.",
-          );
+            SnackBar(
+              content: Text(l10n.errorSavingFailed(e.toString())),
+              backgroundColor: Colors.red,
+            ),
+          ); // !! 使用 l10n !!
           setState(() {
             _isSaving = false;
           });
-        } else {
-          _isSaving = false; // Reset flag logically regardless
-          print(
-            "[AddEditReminderScreen] Saving reminder: _isSaving flag reset logically.",
-          );
         }
       }
     } else {
-      // Form validation failed
-      print("[AddEditReminderScreen] _saveReminder: Form validation failed.");
+      // TODO: Add key for 'Please check form content'
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('请检查表单内容'),
           backgroundColor: Colors.orange,
         ),
-      );
-      if (_isSaving) {
+      ); // !! (需要添加 key) !!
+      if (_isSaving)
         setState(() {
           _isSaving = false;
         });
-      } // Reset if somehow set
     }
-    print("[AddEditReminderScreen] _saveReminder END");
   }
 
   // Confirm and delete reminder
-  Future<void> _confirmDelete() async {
+  Future<void> _confirmDelete(AppLocalizations l10n) async {
     print(
       "[AddEditReminderScreen] _confirmDelete START",
     ); // <--- Log Delete Start
@@ -1105,17 +1044,23 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       builder: (BuildContext dialogContext) {
         /* ... AlertDialog ... */
         return AlertDialog(
-          title: const Text('确认删除提醒?'),
-          content: const Text('确定要删除此提醒吗？此操作无法撤销。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
+          title: Text(l10n.confirmDeleteTitle),
+          content: Text(
+            l10n.deleteReminderConfirmation(
+              _taskNameController.text.trim().isNotEmpty
+                  ? _taskNameController.text.trim()
+                  : '此提醒',
             ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(l10n.cancel),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ), // !! 使用 l10n !!
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.delete), // !! 使用 l10n !!
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('删除'),
             ),
           ],
         );
@@ -1177,7 +1122,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
           );
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('提醒已删除')));
+          ).showSnackBar(const SnackBar(content: Text('Reminder deleted')));
           context.goNamed(
             RemindersListScreen.routeName,
           ); // Use GoRouter to navigate back
@@ -1199,7 +1144,10 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             _isSaving = false;
           }); // Reset state on error
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除提醒失败: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(l10n.errorDeletingFailed(e.toString())),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }

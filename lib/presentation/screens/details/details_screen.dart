@@ -12,6 +12,7 @@ import '../../../models/enum.dart';
 import '../../../providers/object_providers.dart'; // 引入 Providers
 import '../../widgets/log_list_item.dart'; // 引入日志列表项 Widget
 import '../../widgets/add_log_dialog.dart'; // !! 引入 AddLogDialog !!
+import '../../../l10n/app_localizations.dart';
 
 class DetailsScreen extends ConsumerWidget {
   final int objectId;
@@ -25,7 +26,8 @@ class DetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final String titlePrefix = objectType == ObjectType.plant ? '植物' : '宠物';
+    final l10n = AppLocalizations.of(context)!;
+
     final DateFormat dateFormatter = DateFormat('yyyy-MM-dd');
 
     final detailsAsyncValue =
@@ -42,7 +44,7 @@ class DetailsScreen extends ConsumerWidget {
       body: detailsAsyncValue.when(
         data: (objectData) {
           if (objectData == null) {
-            return const Center(child: Text('对象不存在或已被删除'));
+            return Center(child: Text(l10n.errorNotFound));
           }
 
           String name = '';
@@ -57,6 +59,7 @@ class DetailsScreen extends ConsumerWidget {
             photoPath = objectData.photoPath;
             specificDetails = _buildPlantSpecificDetails(
               context,
+              l10n,
               objectData,
               dateFormatter,
             );
@@ -66,12 +69,19 @@ class DetailsScreen extends ConsumerWidget {
             photoPath = objectData.photoPath;
             specificDetails = _buildPetSpecificDetails(
               context,
+              l10n,
               objectData,
               dateFormatter,
             );
-            statisticsSection = _buildPetWeightChart(context, ref, objectId);
+            // !! 传递 l10n 给图表方法 !!
+            statisticsSection = _buildPetWeightChart(
+              context,
+              ref,
+              l10n,
+              objectId,
+            );
           } else {
-            return const Center(child: Text('数据类型错误'));
+            return Center(child: Text(l10n.errorInvalidData));
           }
 
           return CustomScrollView(
@@ -117,7 +127,7 @@ class DetailsScreen extends ConsumerWidget {
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.photo_library_outlined),
-                    tooltip: '查看照片墙',
+                    tooltip: l10n.viewPhotoGallery,
                     onPressed: () {
                       // !! 修改点：将 objectId 和 name 都放入 extra !!
                       final extraData = {
@@ -140,7 +150,7 @@ class DetailsScreen extends ConsumerWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.edit),
-                    tooltip: '编辑',
+                    tooltip: l10n.edit,
                     onPressed: () {
                       if (objectType == ObjectType.plant) {
                         context.goNamed(
@@ -181,7 +191,7 @@ class DetailsScreen extends ConsumerWidget {
 
                       if (statisticsSection != null) ...[
                         Text(
-                          '成长曲线',
+                          l10n.growthComparison,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 16),
@@ -190,7 +200,7 @@ class DetailsScreen extends ConsumerWidget {
                       ],
 
                       Text(
-                        '日志记录',
+                        'Log Records',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ],
@@ -200,10 +210,10 @@ class DetailsScreen extends ConsumerWidget {
               logAsyncValue.when(
                 data: (logs) {
                   if (logs.isEmpty) {
-                    return const SliverToBoxAdapter(
+                    return SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32.0),
-                        child: Center(child: Text('还没有日志记录')),
+                        padding: const EdgeInsets.symmetric(vertical: 32.0),
+                        child: Center(child: Text(l10n.noLogs)),
                       ),
                     );
                   }
@@ -228,7 +238,9 @@ class DetailsScreen extends ConsumerWidget {
                     ),
                 error:
                     (error, stack) => SliverToBoxAdapter(
-                      child: Center(child: Text('加载日志失败: $error')),
+                      child: Center(
+                        child: Text(l10n.loadingFailed(error.toString())),
+                      ),
                     ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -240,14 +252,15 @@ class DetailsScreen extends ConsumerWidget {
               body: Center(child: CircularProgressIndicator()),
             ),
         error:
-            (error, stack) =>
-                Scaffold(body: Center(child: Text('加载详情失败: $error'))),
+            (error, stack) => Scaffold(
+              body: Center(child: Text(l10n.loadingFailed(error.toString()))),
+            ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showAddLogDialog(context, ref, objectId, objectType);
         },
-        tooltip: '添加日志',
+        tooltip: l10n.addLogEntry,
         child: const Icon(Icons.note_add),
       ),
     );
@@ -257,6 +270,7 @@ class DetailsScreen extends ConsumerWidget {
 
   Widget _buildPlantSpecificDetails(
     BuildContext context,
+    AppLocalizations l10n,
     Plant plant,
     DateFormat formatter,
   ) {
@@ -264,20 +278,34 @@ class DetailsScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (plant.species != null && plant.species!.isNotEmpty)
-          _buildInfoRow(context, Icons.eco_outlined, '品种', plant.species!),
+          _buildInfoRow(
+            context,
+            l10n,
+            Icons.eco_outlined,
+            l10n.species,
+            plant.species!,
+          ),
         if (plant.acquisitionDate != null)
           _buildInfoRow(
             context,
+            l10n,
             Icons.calendar_today_outlined,
-            '获取日期',
+            l10n.acquisitionDate, // !! 使用 l10n !!
             formatter.format(plant.acquisitionDate!),
           ),
         if (plant.room != null && plant.room!.isNotEmpty)
-          _buildInfoRow(context, Icons.location_on_outlined, '位置', plant.room!),
+          _buildInfoRow(
+            context,
+            l10n,
+            Icons.location_on_outlined,
+            l10n.room,
+            plant.room!,
+          ),
         _buildInfoRow(
           context,
+          l10n,
           Icons.access_time,
-          '添加于',
+          '添加于', // TODO: Localize "Added on"
           formatter.format(plant.creationDate),
         ),
       ],
@@ -286,49 +314,55 @@ class DetailsScreen extends ConsumerWidget {
 
   Widget _buildPetSpecificDetails(
     BuildContext context,
+    AppLocalizations l10n,
     Pet pet,
     DateFormat formatter,
   ) {
     String genderText;
     switch (pet.gender) {
       case Gender.male:
-        genderText = '雄性';
+        genderText = l10n.male;
         break;
       case Gender.female:
-        genderText = '雌性';
-        break;
+        genderText = l10n.female;
+        break; // !! 使用 l10n !!
       default:
-        genderText = '未知';
+        genderText = l10n.unknown;
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (pet.species != null && pet.species!.isNotEmpty)
-          _buildInfoRow(context, Icons.category_outlined, '种类', pet.species!),
+          _buildInfoRow(
+            context,
+            l10n,
+            Icons.category_outlined,
+            l10n.species,
+            pet.species!,
+          ),
         if (pet.breed != null && pet.breed!.isNotEmpty)
-          _buildInfoRow(context, Icons.pets, '品种', pet.breed!),
+          _buildInfoRow(context, l10n, Icons.pets, l10n.breed, pet.breed!),
         if (pet.birthDate != null)
           _buildInfoRow(
             context,
+            l10n,
             Icons.cake_outlined,
-            '生日',
+            l10n.birthDate, // !! 使用 l10n !!
             formatter.format(pet.birthDate!),
           ),
         if (pet.gender != null)
           _buildInfoRow(
             context,
-            pet.gender == Gender.male
-                ? Icons.male
-                : (pet.gender == Gender.female
-                    ? Icons.female
-                    : Icons.question_mark),
-            '性别',
+            l10n,
+            /* ... icon logic ... */ Icons.question_mark,
+            l10n.gender, // !! 使用 l10n !!
             genderText,
           ),
         _buildInfoRow(
           context,
+          l10n,
           Icons.access_time,
-          '添加于',
+          '添加于', // TODO: Localize "Added on"
           formatter.format(pet.creationDate),
         ),
       ],
@@ -337,8 +371,9 @@ class DetailsScreen extends ConsumerWidget {
 
   Widget _buildInfoRow(
     BuildContext context,
+    AppLocalizations l10n, // !! 接收 l10n !!
     IconData icon,
-    String label,
+    String label, // label 现在由调用者提供本地化版本
     String value,
   ) {
     return Padding(
@@ -363,7 +398,12 @@ class DetailsScreen extends ConsumerWidget {
   }
 
   // !! 构建宠物体重图表 Widget !!
-  Widget _buildPetWeightChart(BuildContext context, WidgetRef ref, int petId) {
+  Widget _buildPetWeightChart(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    int petId,
+  ) {
     final chartDataAsyncValue = ref.watch(petWeightChartDataProvider(petId));
     final theme = Theme.of(context);
 
@@ -376,7 +416,7 @@ class DetailsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               alignment: Alignment.center,
               child: const Text(
-                '体重记录不足 (需至少2条)，\n无法生成曲线图。',
+                'Not enough weight records...',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -560,7 +600,7 @@ class DetailsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16.0),
             alignment: Alignment.center,
             child: const Text(
-              '无法加载体重数据。\n请检查体重日志格式是否正确。',
+              'Cannot load weight data...',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.red),
             ),

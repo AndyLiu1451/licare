@@ -2214,6 +2214,384 @@ class RemindersCompanion extends UpdateCompanion<Reminder> {
   }
 }
 
+class $CustomEventTypesTable extends CustomEventTypes
+    with TableInfo<$CustomEventTypesTable, CustomEventType> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomEventTypesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _iconCodepointMeta = const VerificationMeta(
+    'iconCodepoint',
+  );
+  @override
+  late final GeneratedColumn<int> iconCodepoint = GeneratedColumn<int>(
+    'icon_codepoint',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _iconFontFamilyMeta = const VerificationMeta(
+    'iconFontFamily',
+  );
+  @override
+  late final GeneratedColumn<String> iconFontFamily = GeneratedColumn<String>(
+    'icon_font_family',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isPresetMeta = const VerificationMeta(
+    'isPreset',
+  );
+  @override
+  late final GeneratedColumn<bool> isPreset = GeneratedColumn<bool>(
+    'is_preset',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_preset" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    iconCodepoint,
+    iconFontFamily,
+    isPreset,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_event_types';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomEventType> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('icon_codepoint')) {
+      context.handle(
+        _iconCodepointMeta,
+        iconCodepoint.isAcceptableOrUnknown(
+          data['icon_codepoint']!,
+          _iconCodepointMeta,
+        ),
+      );
+    }
+    if (data.containsKey('icon_font_family')) {
+      context.handle(
+        _iconFontFamilyMeta,
+        iconFontFamily.isAcceptableOrUnknown(
+          data['icon_font_family']!,
+          _iconFontFamilyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_preset')) {
+      context.handle(
+        _isPresetMeta,
+        isPreset.isAcceptableOrUnknown(data['is_preset']!, _isPresetMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomEventType map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomEventType(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      name:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}name'],
+          )!,
+      iconCodepoint: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}icon_codepoint'],
+      ),
+      iconFontFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_font_family'],
+      ),
+      isPreset:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}is_preset'],
+          )!,
+    );
+  }
+
+  @override
+  $CustomEventTypesTable createAlias(String alias) {
+    return $CustomEventTypesTable(attachedDatabase, alias);
+  }
+}
+
+class CustomEventType extends DataClass implements Insertable<CustomEventType> {
+  final int id;
+  final String name;
+  final int? iconCodepoint;
+  final String? iconFontFamily;
+  final bool isPreset;
+  const CustomEventType({
+    required this.id,
+    required this.name,
+    this.iconCodepoint,
+    this.iconFontFamily,
+    required this.isPreset,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || iconCodepoint != null) {
+      map['icon_codepoint'] = Variable<int>(iconCodepoint);
+    }
+    if (!nullToAbsent || iconFontFamily != null) {
+      map['icon_font_family'] = Variable<String>(iconFontFamily);
+    }
+    map['is_preset'] = Variable<bool>(isPreset);
+    return map;
+  }
+
+  CustomEventTypesCompanion toCompanion(bool nullToAbsent) {
+    return CustomEventTypesCompanion(
+      id: Value(id),
+      name: Value(name),
+      iconCodepoint:
+          iconCodepoint == null && nullToAbsent
+              ? const Value.absent()
+              : Value(iconCodepoint),
+      iconFontFamily:
+          iconFontFamily == null && nullToAbsent
+              ? const Value.absent()
+              : Value(iconFontFamily),
+      isPreset: Value(isPreset),
+    );
+  }
+
+  factory CustomEventType.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomEventType(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      iconCodepoint: serializer.fromJson<int?>(json['iconCodepoint']),
+      iconFontFamily: serializer.fromJson<String?>(json['iconFontFamily']),
+      isPreset: serializer.fromJson<bool>(json['isPreset']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'iconCodepoint': serializer.toJson<int?>(iconCodepoint),
+      'iconFontFamily': serializer.toJson<String?>(iconFontFamily),
+      'isPreset': serializer.toJson<bool>(isPreset),
+    };
+  }
+
+  CustomEventType copyWith({
+    int? id,
+    String? name,
+    Value<int?> iconCodepoint = const Value.absent(),
+    Value<String?> iconFontFamily = const Value.absent(),
+    bool? isPreset,
+  }) => CustomEventType(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    iconCodepoint:
+        iconCodepoint.present ? iconCodepoint.value : this.iconCodepoint,
+    iconFontFamily:
+        iconFontFamily.present ? iconFontFamily.value : this.iconFontFamily,
+    isPreset: isPreset ?? this.isPreset,
+  );
+  CustomEventType copyWithCompanion(CustomEventTypesCompanion data) {
+    return CustomEventType(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      iconCodepoint:
+          data.iconCodepoint.present
+              ? data.iconCodepoint.value
+              : this.iconCodepoint,
+      iconFontFamily:
+          data.iconFontFamily.present
+              ? data.iconFontFamily.value
+              : this.iconFontFamily,
+      isPreset: data.isPreset.present ? data.isPreset.value : this.isPreset,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomEventType(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('iconCodepoint: $iconCodepoint, ')
+          ..write('iconFontFamily: $iconFontFamily, ')
+          ..write('isPreset: $isPreset')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, iconCodepoint, iconFontFamily, isPreset);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomEventType &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.iconCodepoint == this.iconCodepoint &&
+          other.iconFontFamily == this.iconFontFamily &&
+          other.isPreset == this.isPreset);
+}
+
+class CustomEventTypesCompanion extends UpdateCompanion<CustomEventType> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int?> iconCodepoint;
+  final Value<String?> iconFontFamily;
+  final Value<bool> isPreset;
+  const CustomEventTypesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.iconCodepoint = const Value.absent(),
+    this.iconFontFamily = const Value.absent(),
+    this.isPreset = const Value.absent(),
+  });
+  CustomEventTypesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.iconCodepoint = const Value.absent(),
+    this.iconFontFamily = const Value.absent(),
+    this.isPreset = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<CustomEventType> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? iconCodepoint,
+    Expression<String>? iconFontFamily,
+    Expression<bool>? isPreset,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (iconCodepoint != null) 'icon_codepoint': iconCodepoint,
+      if (iconFontFamily != null) 'icon_font_family': iconFontFamily,
+      if (isPreset != null) 'is_preset': isPreset,
+    });
+  }
+
+  CustomEventTypesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int?>? iconCodepoint,
+    Value<String?>? iconFontFamily,
+    Value<bool>? isPreset,
+  }) {
+    return CustomEventTypesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      iconCodepoint: iconCodepoint ?? this.iconCodepoint,
+      iconFontFamily: iconFontFamily ?? this.iconFontFamily,
+      isPreset: isPreset ?? this.isPreset,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (iconCodepoint.present) {
+      map['icon_codepoint'] = Variable<int>(iconCodepoint.value);
+    }
+    if (iconFontFamily.present) {
+      map['icon_font_family'] = Variable<String>(iconFontFamily.value);
+    }
+    if (isPreset.present) {
+      map['is_preset'] = Variable<bool>(isPreset.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomEventTypesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('iconCodepoint: $iconCodepoint, ')
+          ..write('iconFontFamily: $iconFontFamily, ')
+          ..write('isPreset: $isPreset')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2221,6 +2599,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PetsTable pets = $PetsTable(this);
   late final $LogEntriesTable logEntries = $LogEntriesTable(this);
   late final $RemindersTable reminders = $RemindersTable(this);
+  late final $CustomEventTypesTable customEventTypes = $CustomEventTypesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2230,6 +2611,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pets,
     logEntries,
     reminders,
+    customEventTypes,
   ];
 }
 
@@ -3304,6 +3686,224 @@ typedef $$RemindersTableProcessedTableManager =
       Reminder,
       PrefetchHooks Function()
     >;
+typedef $$CustomEventTypesTableCreateCompanionBuilder =
+    CustomEventTypesCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<int?> iconCodepoint,
+      Value<String?> iconFontFamily,
+      Value<bool> isPreset,
+    });
+typedef $$CustomEventTypesTableUpdateCompanionBuilder =
+    CustomEventTypesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int?> iconCodepoint,
+      Value<String?> iconFontFamily,
+      Value<bool> isPreset,
+    });
+
+class $$CustomEventTypesTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomEventTypesTable> {
+  $$CustomEventTypesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get iconCodepoint => $composableBuilder(
+    column: $table.iconCodepoint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconFontFamily => $composableBuilder(
+    column: $table.iconFontFamily,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPreset => $composableBuilder(
+    column: $table.isPreset,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomEventTypesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomEventTypesTable> {
+  $$CustomEventTypesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get iconCodepoint => $composableBuilder(
+    column: $table.iconCodepoint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconFontFamily => $composableBuilder(
+    column: $table.iconFontFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPreset => $composableBuilder(
+    column: $table.isPreset,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomEventTypesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomEventTypesTable> {
+  $$CustomEventTypesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get iconCodepoint => $composableBuilder(
+    column: $table.iconCodepoint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get iconFontFamily => $composableBuilder(
+    column: $table.iconFontFamily,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isPreset =>
+      $composableBuilder(column: $table.isPreset, builder: (column) => column);
+}
+
+class $$CustomEventTypesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomEventTypesTable,
+          CustomEventType,
+          $$CustomEventTypesTableFilterComposer,
+          $$CustomEventTypesTableOrderingComposer,
+          $$CustomEventTypesTableAnnotationComposer,
+          $$CustomEventTypesTableCreateCompanionBuilder,
+          $$CustomEventTypesTableUpdateCompanionBuilder,
+          (
+            CustomEventType,
+            BaseReferences<
+              _$AppDatabase,
+              $CustomEventTypesTable,
+              CustomEventType
+            >,
+          ),
+          CustomEventType,
+          PrefetchHooks Function()
+        > {
+  $$CustomEventTypesTableTableManager(
+    _$AppDatabase db,
+    $CustomEventTypesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () =>
+                  $$CustomEventTypesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$CustomEventTypesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$CustomEventTypesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> iconCodepoint = const Value.absent(),
+                Value<String?> iconFontFamily = const Value.absent(),
+                Value<bool> isPreset = const Value.absent(),
+              }) => CustomEventTypesCompanion(
+                id: id,
+                name: name,
+                iconCodepoint: iconCodepoint,
+                iconFontFamily: iconFontFamily,
+                isPreset: isPreset,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<int?> iconCodepoint = const Value.absent(),
+                Value<String?> iconFontFamily = const Value.absent(),
+                Value<bool> isPreset = const Value.absent(),
+              }) => CustomEventTypesCompanion.insert(
+                id: id,
+                name: name,
+                iconCodepoint: iconCodepoint,
+                iconFontFamily: iconFontFamily,
+                isPreset: isPreset,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomEventTypesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomEventTypesTable,
+      CustomEventType,
+      $$CustomEventTypesTableFilterComposer,
+      $$CustomEventTypesTableOrderingComposer,
+      $$CustomEventTypesTableAnnotationComposer,
+      $$CustomEventTypesTableCreateCompanionBuilder,
+      $$CustomEventTypesTableUpdateCompanionBuilder,
+      (
+        CustomEventType,
+        BaseReferences<_$AppDatabase, $CustomEventTypesTable, CustomEventType>,
+      ),
+      CustomEventType,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3315,4 +3915,6 @@ class $AppDatabaseManager {
       $$LogEntriesTableTableManager(_db, _db.logEntries);
   $$RemindersTableTableManager get reminders =>
       $$RemindersTableTableManager(_db, _db.reminders);
+  $$CustomEventTypesTableTableManager get customEventTypes =>
+      $$CustomEventTypesTableTableManager(_db, _db.customEventTypes);
 }

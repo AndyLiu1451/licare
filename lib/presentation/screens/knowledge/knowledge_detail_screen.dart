@@ -1,5 +1,7 @@
+// lib/presentation/screens/knowledge/knowledge_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../models/knowledge_topic.dart';
 import '../../../providers/knowledge_provider.dart';
 import 'knowledge_base_screen.dart'; // 引入 KnowledgeType 枚举
@@ -17,6 +19,8 @@ class KnowledgeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!; // !! 获取 l10n 实例 !!
+
     // 根据类型选择正确的 Provider
     final asyncTopics = ref.watch(
       type == KnowledgeType.plant
@@ -24,10 +28,13 @@ class KnowledgeDetailScreen extends ConsumerWidget {
           : petKnowledgeProvider,
     );
 
+    // !! 不再需要在 build 方法外部设置 AppBar，因为有 SliverAppBar !!
+    // return Scaffold(
+    //   appBar: AppBar(), // 移除外部 AppBar
+    //   body: ...
+    // );
+    // 直接返回 Scaffold，让 CustomScrollView 处理 AppBar
     return Scaffold(
-      appBar: AppBar(
-        // AppBar 标题会动态设置
-      ),
       body: asyncTopics.when(
         data: (topics) {
           // 从列表中找到对应的 Topic
@@ -37,44 +44,32 @@ class KnowledgeDetailScreen extends ConsumerWidget {
                 () => KnowledgeTopic(
                   // Fallback if not found
                   id: '',
-                  name: '未找到主题',
+                  name: l10n.topicNotFound, // !! 使用 l10n !!
                   category: '',
                   sections: [],
                 ),
           );
 
           if (topic.id.isEmpty) {
-            return const Center(child: Text('无法加载主题内容'));
+            // 使用 l10n 替换硬编码字符串
+            return Center(child: Text(l10n.topicNotFound)); // !! 使用 l10n !!
           }
 
-          // 设置 AppBar 标题
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Safely update AppBar title after build
-            if (context.mounted) {
-              final appBar = Scaffold.of(context).widget.appBar as AppBar?;
-              if (appBar != null && appBar.title is Text) {
-                // This approach is tricky and might not work reliably.
-                // A better way is to pass the title via GoRouter state or use a StateNotifier for the title.
-                // For simplicity now, we assume AppBar is simple Text.
-                // (appBar.title as Text).controller?.text = topic.name; // Not possible with Text widget
-                // Consider using a Provider for the title
-              }
-            }
-          });
+          // !! 移除 WidgetsBinding.instance.addPostFrameCallback 来设置标题 !!
+          // AppBar 标题现在由 SliverAppBar 处理
 
           return CustomScrollView(
             // 使用 CustomScrollView 防止内容过多溢出
             slivers: [
-              // 固定 AppBar，显示标题
+              // 固定 AppBar，显示标题 (标题来自 topic.name，是数据，不需要 l10n)
               SliverAppBar(
-                title: Text(topic.name), // 设置标题
+                title: Text(topic.name), // 设置标题 (来自数据)
                 pinned: true, // 固定在顶部
-                automaticallyImplyLeading: false, // 通常详情页有返回按钮，这里不再需要系统默认的
+                // automaticallyImplyLeading: false, // 保留默认值 true，显示返回按钮
                 backgroundColor:
                     Theme.of(context).appBarTheme.backgroundColor ??
                     Theme.of(context).colorScheme.surface, // 确保背景色
                 elevation: Theme.of(context).appBarTheme.elevation ?? 2.0,
-                // foregroundColor: Theme.of(context).appBarTheme.foregroundColor, // Set foreground color if needed
               ),
               // 内容列表
               SliverPadding(
@@ -82,13 +77,14 @@ class KnowledgeDetailScreen extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final section = topic.sections[index];
+                    // section.title 和 section.content 来自 JSON 数据，不需要 l10n
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            section.title,
+                            section.title, // 来自数据
                             style: Theme.of(
                               context,
                             ).textTheme.titleLarge?.copyWith(
@@ -97,7 +93,7 @@ class KnowledgeDetailScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            section.content,
+                            section.content, // 来自数据
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(height: 1.5), // 增加行高
                           ),
@@ -111,7 +107,11 @@ class KnowledgeDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('加载知识详情失败: $error')),
+        // 使用 l10n 替换硬编码字符串，并传入 error 参数
+        error:
+            (error, stack) => Center(
+              child: Text(l10n.loadingKnowledgeFailed(error.toString())),
+            ), // !! 使用 l10n !!
       ),
     );
   }

@@ -2,6 +2,21 @@ import 'package:drift/drift.dart';
 import 'package:plant_pet_log/models/enum.dart'; // 引入枚举
 
 // 使用 Table mixin 定义表结构
+class CustomEventTypes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name =>
+      text().withLength(min: 1, max: 50).unique()(); // 类型名称，唯一
+  IntColumn get iconCodepoint =>
+      integer().nullable()(); // 图标的 Codepoint (例如来自 Icons.favorite.codePoint)
+  TextColumn get iconFontFamily =>
+      text().nullable()(); // 图标的字体家族 (例如 'MaterialIcons')
+  // Optional: Add color information if needed
+  // TextColumn get colorHex => text().nullable()();
+  BoolColumn get isPreset =>
+      boolean().withDefault(const Constant(false))(); // 是否为预设类型 (不可删除/编辑名称)
+  // Optional: Add order column for custom sorting
+  // IntColumn get displayOrder => integer().nullable()();
+}
 
 // 植物表
 class Plants extends Table {

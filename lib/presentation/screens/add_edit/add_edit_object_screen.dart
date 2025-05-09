@@ -16,6 +16,7 @@ import '../../../providers/database_provider.dart'; // 引入 databaseProvider
 // 需要在路由配置中引入 PlantListScreen 和 PetListScreen (如果之前没引入的话)
 import '../../../presentation/screens/plants/plant_list_screen.dart';
 import '../../../presentation/screens/pets/pet_list_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class AddEditObjectScreen extends ConsumerStatefulWidget {
   // 1. 改为 ConsumerStatefulWidget
@@ -75,9 +76,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
 
   // 5. 加载编辑数据的函数
   Future<void> _loadObjectData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    final l10n = AppLocalizations.of(context)!;
     final db = ref.read(databaseProvider); // 获取数据库实例
     try {
       if (widget.objectType == ObjectType.plant) {
@@ -85,18 +84,21 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             await (db.select(db.plants)..where(
               (tbl) => tbl.id.equals(widget.objectId!),
             )).getSingleOrNull();
-        if (plant != null) {
-          _nameController.text = plant.name;
-          _nicknameController.text = plant.nickname ?? '';
-          _speciesController.text = plant.species ?? '';
-          _roomController.text = plant.room ?? '';
-          _acquisitionDate = plant.acquisitionDate;
-          _photoPath = plant.photoPath;
-          _creationDate = plant.creationDate; // 保留原始创建日期
-        } else {
-          // 处理找不到对象的情况
-          _showErrorSnackBar('找不到植物数据');
-          context.pop(); // 返回上一页
+        if (plant != null && mounted) {
+          setState(() {
+            _nameController.text = plant.name;
+            _nicknameController.text = plant.nickname ?? '';
+            _speciesController.text = plant.species ?? '';
+            _roomController.text = plant.room ?? '';
+            _acquisitionDate = plant.acquisitionDate;
+            _photoPath = plant.photoPath;
+            _creationDate = plant.creationDate;
+          });
+        } else if (mounted) {
+          _showErrorSnackBar(
+            l10n.errorNotFound,
+          ); // !! 使用 l10n !! (Or a specific message)
+          context.pop();
         }
       } else {
         // Pet
@@ -104,23 +106,29 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             await (db.select(db.pets)..where(
               (tbl) => tbl.id.equals(widget.objectId!),
             )).getSingleOrNull();
-        if (pet != null) {
-          _nameController.text = pet.name;
-          _nicknameController.text = pet.nickname ?? '';
-          _speciesController.text = pet.species ?? '';
-          _breedController.text = pet.breed ?? '';
-          _birthDate = pet.birthDate;
-          _gender = pet.gender;
-          _photoPath = pet.photoPath;
-          _creationDate = pet.creationDate;
-        } else {
-          _showErrorSnackBar('找不到宠物数据');
+        if (pet != null && mounted) {
+          setState(() {
+            _nameController.text = pet.name;
+            _nicknameController.text = pet.nickname ?? '';
+            _speciesController.text = pet.species ?? '';
+            _breedController.text = pet.breed ?? '';
+            _birthDate = pet.birthDate;
+            _gender = pet.gender;
+            _photoPath = pet.photoPath;
+            _creationDate = pet.creationDate;
+          });
+        } else if (mounted) {
+          _showErrorSnackBar(
+            l10n.errorNotFound,
+          ); // !! 使用 l10n !! (Or a specific message)
           context.pop();
         }
       }
     } catch (e) {
-      _showErrorSnackBar('加载数据失败: $e');
-      context.pop();
+      if (mounted) {
+        _showErrorSnackBar(l10n.loadingFailed(e.toString())); // !! 使用 l10n !!
+        context.pop();
+      }
     } finally {
       if (mounted) {
         // 确保 widget 还在树中
@@ -145,10 +153,15 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
   // --- UI 构建 ---
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!; // !! 获取 l10n !!
     final title =
         widget.isEditing
-            ? (widget.objectType == ObjectType.plant ? '编辑植物' : '编辑宠物')
-            : (widget.objectType == ObjectType.plant ? '添加植物' : '添加宠物');
+            ? (widget.objectType == ObjectType.plant
+                ? l10n.editPlant
+                : l10n.editPet) // !! 使用 l10n !!
+            : (widget.objectType == ObjectType.plant
+                ? l10n.addPlant
+                : l10n.addPet); // !! 使用 l10n !!
 
     return Scaffold(
       appBar: AppBar(
@@ -168,7 +181,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
                         ),
                       )
                       : const Icon(Icons.save),
-              tooltip: '保存',
+              tooltip: l10n.save,
               onPressed: _isSaving ? null : _saveForm, // 防止重复点击
             ),
         ],
@@ -176,12 +189,12 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator()) // 加载时显示菊花
-              : _buildForm(), // 加载完成显示表单
+              : _buildForm(l10n), // 加载完成显示表单
     );
   }
 
   // 6. 构建表单 Widget
-  Widget _buildForm() {
+  Widget _buildForm(AppLocalizations l10n) {
     return SingleChildScrollView(
       // 使表单可滚动
       padding: const EdgeInsets.all(16.0),
@@ -190,18 +203,18 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _buildImagePicker(), // 图片选择区域
+            _buildImagePicker(l10n), // 图片选择区域
             const SizedBox(height: 20),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: '名称 *',
-                hintText: '给它取个名字吧',
+              decoration: InputDecoration(
+                labelText: '${l10n.name} *',
+                hintText: 'Give it a name',
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return '名称不能为空';
+                  return '${l10n.name}不能为空';
                 }
                 return null;
               },
@@ -210,9 +223,9 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _nicknameController,
-              decoration: const InputDecoration(
-                labelText: '昵称',
-                hintText: '(可选)',
+              decoration: InputDecoration(
+                labelText: l10n.nickname, // !! 使用 l10n !!
+                hintText: l10n.optional,
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.sentences,
@@ -221,9 +234,8 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             TextFormField(
               controller: _speciesController,
               decoration: InputDecoration(
-                labelText:
-                    widget.objectType == ObjectType.plant ? '品种/学名' : '品种',
-                hintText: '(可选)',
+                labelText: l10n.species, // !! 使用 l10n !!
+                hintText: l10n.optional,
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.sentences,
@@ -234,7 +246,8 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             if (widget.objectType == ObjectType.plant) ...[
               _buildDatePicker(
                 context: context,
-                label: '获取日期',
+                l10n: l10n, // !! 传递 l10n !!
+                label: l10n.acquisitionDate,
                 selectedDate: _acquisitionDate,
                 onDateSelected: (date) {
                   setState(() => _acquisitionDate = date);
@@ -243,9 +256,9 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _roomController,
-                decoration: const InputDecoration(
-                  labelText: '放置位置',
-                  hintText: '例如：客厅、阳台 (可选)',
+                decoration: InputDecoration(
+                  labelText: l10n.room, // !! 使用 l10n !!
+                  hintText: '${l10n.optional} (例如：客厅)',
                   border: OutlineInputBorder(),
                 ),
                 textCapitalization: TextCapitalization.sentences,
@@ -254,9 +267,9 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
               // Pet fields
               TextFormField(
                 controller: _breedController,
-                decoration: const InputDecoration(
-                  labelText: '具体品种',
-                  hintText: '例如：金毛、布偶 (可选)',
+                decoration: InputDecoration(
+                  labelText: l10n.breed, // !! 使用 l10n !!
+                  hintText: '${l10n.optional} (例如：金毛)',
                   border: OutlineInputBorder(),
                 ),
                 textCapitalization: TextCapitalization.sentences,
@@ -264,7 +277,8 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
               const SizedBox(height: 16),
               _buildDatePicker(
                 context: context,
-                label: '生日',
+                l10n: l10n, // !! 传递 l10n !!
+                label: l10n.birthDate,
                 selectedDate: _birthDate,
                 firstDate: DateTime(1990), // 宠物生日可选范围大些
                 lastDate: DateTime.now(),
@@ -273,7 +287,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              _buildGenderSelector(), // 性别选择
+              _buildGenderSelector(l10n), // 性别选择
             ],
             const SizedBox(height: 30),
             // 删除按钮 (仅编辑模式)
@@ -282,10 +296,10 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
                 child: TextButton.icon(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: Text(
-                    '删除${widget.objectType == ObjectType.plant ? '植物' : '宠物'}',
+                    '删除${widget.objectType == ObjectType.plant ? l10n.plants : l10n.pets}',
                     style: const TextStyle(color: Colors.red),
                   ),
-                  onPressed: _confirmDelete,
+                  onPressed: () => _confirmDelete(l10n),
                 ),
               ),
           ],
@@ -297,6 +311,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
   // 7. 构建日期选择器
   Widget _buildDatePicker({
     required BuildContext context,
+    required AppLocalizations l10n,
     required String label,
     required DateTime? selectedDate,
     required ValueChanged<DateTime?> onDateSelected,
@@ -326,7 +341,9 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
           suffixIcon: const Icon(Icons.calendar_today), // 添加日历图标
         ),
         child: Text(
-          selectedDate != null ? formatter.format(selectedDate) : '(未选择)',
+          selectedDate != null
+              ? formatter.format(selectedDate)
+              : l10n.selectDate,
           style: TextStyle(
             color:
                 selectedDate != null
@@ -339,26 +356,26 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
   }
 
   // 8. 构建性别选择器 (仅宠物)
-  Widget _buildGenderSelector() {
+  Widget _buildGenderSelector(AppLocalizations l10n) {
     return DropdownButtonFormField<Gender>(
       value: _gender,
-      decoration: const InputDecoration(
-        labelText: '性别',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: l10n.gender,
+        border: const OutlineInputBorder(),
       ),
       items:
           Gender.values.map((Gender gender) {
             String text;
             switch (gender) {
               case Gender.male:
-                text = '雄性';
-                break;
+                text = l10n.male;
+                break; // !! 使用 l10n !!
               case Gender.female:
-                text = '雌性';
-                break;
+                text = l10n.female;
+                break; // !! 使用 l10n !!
               case Gender.unknown:
-                text = '未知';
-                break;
+                text = l10n.unknown;
+                break; // !! 使用 l10n !!
             }
             return DropdownMenuItem<Gender>(value: gender, child: Text(text));
           }).toList(),
@@ -372,12 +389,12 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
   }
 
   // 9. 构建图片选择器
-  Widget _buildImagePicker() {
+  Widget _buildImagePicker(AppLocalizations l10n) {
     return Center(
       child: Column(
         children: [
           GestureDetector(
-            onTap: _showImageSourceActionSheet,
+            onTap: () => _showImageSourceActionSheet(l10n),
             child: CircleAvatar(
               radius: 60,
               backgroundColor: Colors.grey[200],
@@ -397,8 +414,10 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
           ),
           TextButton.icon(
             icon: const Icon(Icons.image),
-            label: Text(_photoPath != null ? '更换照片' : '添加照片'),
-            onPressed: _showImageSourceActionSheet,
+            label: Text(
+              _photoPath != null ? '更换照片' : l10n.addPhotos.split(' ')[0],
+            ), // !! 使用 l10n (简单处理) !!
+            onPressed: () => _showImageSourceActionSheet(l10n),
           ),
         ],
       ),
@@ -406,7 +425,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
   }
 
   // !! 新增: 显示图片来源选择 (底部动作表单)
-  void _showImageSourceActionSheet() {
+  void _showImageSourceActionSheet(AppLocalizations l10n) {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
@@ -416,7 +435,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             children: <Widget>[
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('从相册选择'),
+                title: const Text('Select from Album'),
                 onTap: () {
                   _getImage(ImageSource.gallery);
                   Navigator.of(context).pop(); // 关闭底部表单
@@ -424,7 +443,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera),
-                title: const Text('拍照'),
+                title: const Text('Take Photo'),
                 onTap: () {
                   _getImage(ImageSource.camera);
                   Navigator.of(context).pop();
@@ -435,7 +454,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
                   title: const Text(
-                    '移除照片',
+                    'Remove Photo',
                     style: TextStyle(color: Colors.red),
                   ),
                   onTap: () {
@@ -492,7 +511,8 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
         }
       } catch (e) {
         if (mounted) {
-          _showErrorSnackBar('保存图片失败: $e');
+          final l10n = AppLocalizations.of(context)!;
+          _showErrorSnackBar('Failed to save image: $e');
         }
       }
     }
@@ -502,6 +522,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
 
   // 11. 保存表单数据
   Future<void> _saveForm() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_isSaving) return; // 防止重复提交
 
     if (_formKey.currentState!.validate()) {
@@ -559,56 +580,59 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
             await db.insertPet(petCompanion);
           }
         }
-
-        // 保存成功提示
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${widget.objectType == ObjectType.plant ? '植物' : '宠物'}已${widget.isEditing ? '更新' : '添加'}',
+        if (mounted) {
+          // 保存成功提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${widget.objectType == ObjectType.plant ? l10n.plants : l10n.pets}已${widget.isEditing ? '更新' : '添加'}',
+              ),
             ),
-          ),
-        );
+          );
 
-        // 返回上一页
-        if (context.canPop()) context.pop();
+          // 返回上一页
+          if (context.canPop()) context.pop();
+        }
       } catch (e) {
-        _showErrorSnackBar('保存失败: $e');
-        setState(() {
-          _isSaving = false;
-        }); // 出错时允许重试
-      } finally {
-        // 确保在异步操作后如果 widget 还在树中，则更新状态
-        if (mounted && _isSaving) {
-          // 只有在未出错时才将 _isSaving 设回 false (因为出错时已设置)
-          // setState(() { _isSaving = false; }); // 返回时页面已销毁，无需再设置
+        if (mounted) {
+          _showErrorSnackBar(l10n.errorSavingFailed(e.toString()));
+          setState(() {
+            _isSaving = false;
+          });
         }
       }
     } else {
       // 表单验证失败提示
-      _showErrorSnackBar('请检查表单内容');
+      _showErrorSnackBar('Please check form content');
     }
   }
 
   // 12. 确认删除对话框
-  Future<void> _confirmDelete() async {
+  Future<void> _confirmDelete(AppLocalizations l10n) async {
+    final String itemTypeName =
+        widget.objectType == ObjectType.plant
+            ? l10n.plants
+            : l10n.pets; // !! 获取类型名称 !!
+    final String confirmationMessage =
+        widget.objectType == ObjectType.plant
+            ? l10n.deletePlantConfirmation
+            : l10n.deletePetConfirmation; // !! 获取特定确认信息 !!
     final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('确认删除?'),
-          content: Text(
-            '确定要删除这个${widget.objectType == ObjectType.plant ? '植物' : '宠物'}吗？相关的日志和提醒也会一并删除。此操作无法撤销。',
-          ),
+          title: Text(l10n.confirmDeleteTitle),
+          content: Text(confirmationMessage),
           actions: <Widget>[
             TextButton(
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
               onPressed: () {
                 Navigator.of(context).pop(false); // 返回 false
               },
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('删除'),
+              child: Text(l10n.delete),
               onPressed: () {
                 Navigator.of(context).pop(true); // 返回 true
               },
@@ -620,12 +644,12 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
 
     // 如果用户确认删除
     if (result == true) {
-      _deleteObject();
+      _deleteObject(l10n);
     }
   }
 
   // 13. 执行删除操作
-  Future<void> _deleteObject() async {
+  Future<void> _deleteObject(AppLocalizations l10n) async {
     if (!widget.isEditing || widget.objectId == null) return; // 只能在编辑模式删除
 
     setState(() {
@@ -665,7 +689,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${widget.objectType == ObjectType.plant ? '植物' : '宠物'}已删除',
+            '${widget.objectType == ObjectType.plant ? l10n.plants : l10n.pets}已删除',
           ),
         ),
       );
@@ -678,7 +702,7 @@ class _AddEditObjectScreenState extends ConsumerState<AddEditObjectScreen> {
         context.goNamed(PetListScreen.routeName);
       }
     } catch (e) {
-      _showErrorSnackBar('删除失败: $e');
+      _showErrorSnackBar(l10n.errorDeletingFailed(e.toString()));
       if (mounted) {
         setState(() {
           _isSaving = false;

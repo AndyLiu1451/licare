@@ -31,6 +31,8 @@ dependencies:
   flutter:
     sdk: flutter
   # Drift (数据库ORM)
+  flutter_localizations:
+    sdk: flutter
   drift: 2.26.0 # 使用最新稳定版
   sqlite3_flutter_libs: 0.5.0 # 提供不同平台的SQLite库
   path_provider: ^2.0.14 # 获取文件系统路径
@@ -38,7 +40,7 @@ dependencies:
   # Riverpod (状态管理/依赖注入)
   flutter_riverpod: 2.3.0 # 使用最新稳定版
   # 其他可能需要的库 (先添加核心的)
-  intl: 0.18.1 # 日期格式化
+  intl: 0.19.0 # 日期格式化
   go_router: 14.8.1
   image_picker: 1.0.0 # 用于图片选择
   flutter_local_notifications: ^18.0.1
@@ -55,6 +57,8 @@ dependencies:
   shared_preferences: ^2.1.0
   fl_chart: 0.63.0
   rrule: ^0.2.17
+  fluttertoast: ^8.2.2
+  flutter_gen: ^5.10.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -79,6 +83,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  generate: true
   assets:
     - assets/knowledge_base/
 

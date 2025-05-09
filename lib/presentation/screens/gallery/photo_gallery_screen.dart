@@ -1,19 +1,21 @@
+// lib/presentation/screens/gallery/photo_gallery_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:plant_pet_log/presentation/screens/gallery/photo_comparison_screen.dart'; // 引入对比页面
+import 'package:plant_pet_log/presentation/screens/gallery/photo_comparison_screen.dart';
 import '../../../models/enum.dart';
 import '../../../models/photo_info.dart';
-import '../../../providers/object_providers.dart'; // Or photo_providers.dart
+import '../../../providers/object_providers.dart';
+// !! 引入生成的本地化类 !!
+import '../../../l10n/app_localizations.dart';
 
 class PhotoGalleryScreen extends ConsumerStatefulWidget {
-  // Use StatefulWidget for selection logic
   static const routeName = 'photoGallery';
   final int objectId;
   final ObjectType objectType;
-  final String objectName; // Pass object name for AppBar title
+  final String objectName;
 
   const PhotoGalleryScreen({
     super.key,
@@ -27,30 +29,27 @@ class PhotoGalleryScreen extends ConsumerStatefulWidget {
 }
 
 class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
-  final List<PhotoInfo> _selectedPhotos =
-      []; // Track selected photos for comparison
-  bool _isSelectingMode = false; // Are we currently selecting photos?
+  final List<PhotoInfo> _selectedPhotos = [];
+  bool _isSelectingMode = false;
 
   void _toggleSelection(PhotoInfo photo) {
+    final l10n = AppLocalizations.of(context)!; // 获取 l10n 实例
     setState(() {
       if (_selectedPhotos.contains(photo)) {
         _selectedPhotos.remove(photo);
-        // If no photos are selected anymore, exit selection mode
         if (_selectedPhotos.isEmpty) {
           _isSelectingMode = false;
         }
       } else {
-        // Allow selecting max 2 photos
         if (_selectedPhotos.length < 2) {
           _selectedPhotos.add(photo);
-          _isSelectingMode =
-              true; // Enter selection mode when first photo is selected
+          _isSelectingMode = true;
         } else {
-          // Optional: Show a message that max 2 can be selected
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('最多只能选择两张照片进行对比'),
-              duration: Duration(seconds: 1),
+            SnackBar(
+              // !! 使用 l10n !!
+              content: Text(l10n.maxPhotosSelected),
+              duration: const Duration(seconds: 1), // 缩短显示时间
             ),
           );
         }
@@ -67,10 +66,8 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
 
   void _navigateToComparison() {
     if (_selectedPhotos.length == 2) {
-      // Sort selected photos by date ascending
       _selectedPhotos.sort((a, b) => a.dateTaken.compareTo(b.dateTaken));
       context.pushNamed(
-        // Use pushNamed to overlay comparison screen
         PhotoComparisonScreen.routeName,
         extra: {
           'photo1': _selectedPhotos[0],
@@ -78,66 +75,69 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
           'objectName': widget.objectName,
         },
       );
-      // Optionally clear selection after navigation? Or keep it?
-      // _clearSelection();
+      // _clearSelection(); // 对比后保持选择状态可能更好
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!; // !! 获取 l10n !!
     final asyncPhotos = ref.watch(
       objectPhotosProvider((
         objectId: widget.objectId,
         objectType: widget.objectType,
       )),
     );
-    final DateFormat formatter = DateFormat('yyyy-MM-dd');
+    final DateFormat formatter = DateFormat('yyyy-MM-dd'); // 这个日期格式通常不需要本地化
 
     return Scaffold(
       appBar: AppBar(
+        // !! 使用 l10n 和占位符 !!
         title: Text(
           _isSelectingMode
-              ? '选择照片 (${_selectedPhotos.length}/2)'
-              : '${widget.objectName} - 照片墙',
+              ? l10n.selectPhotos(
+                // 使用带占位符的方法
+                _selectedPhotos.length,
+              )
+              : '${widget.objectName} - ${l10n.photoGallery}', // 组合字符串
         ),
         leading:
             _isSelectingMode
                 ? IconButton(
-                  // Show cancel selection button
                   icon: const Icon(Icons.close),
-                  tooltip: '取消选择',
+                  // !! 使用 l10n !!
+                  tooltip: l10n.cancelSelection,
                   onPressed: _clearSelection,
                 )
-                : null, // Default back button appears otherwise
+                : null,
         actions: [
-          // Show "Compare" button only when exactly 2 photos are selected
           if (_isSelectingMode && _selectedPhotos.length == 2)
             TextButton(
               onPressed: _navigateToComparison,
-              child: const Text(
-                '对比',
-                style: TextStyle(color: Colors.white),
-              ), // Adjust color if needed
+              child: Text(
+                // !! 使用 l10n !!
+                l10n.compare,
+                // 保持白色，或根据 AppBar 主题调整
+                style: TextStyle(
+                  color:
+                      Theme.of(context).appBarTheme.foregroundColor ??
+                      Colors.white,
+                ),
+              ),
             ),
-          // Optional: Add button to explicitly enter selection mode?
-          // else if (!_isSelectingMode && asyncPhotos.hasValue && asyncPhotos.value!.length >= 2)
-          //    IconButton(
-          //       icon: const Icon(Icons.compare_arrows),
-          //       tooltip: '选择照片对比',
-          //       onPressed: () => setState(() => _isSelectingMode = true),
-          //    )
+          // Optional button to enter selection mode - tooltip needs localization if added
         ],
       ),
       body: asyncPhotos.when(
         data: (photos) {
           if (photos.isEmpty) {
-            return const Center(child: Text('还没有任何照片记录'));
+            // !! 使用 l10n !!
+            return Center(child: Text(l10n.noPhotos));
           }
-          // 使用 GridView 显示照片墙
           return GridView.builder(
             padding: const EdgeInsets.all(8.0),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, // 每行显示3张照片
+              crossAxisCount: 3,
               crossAxisSpacing: 8.0,
               mainAxisSpacing: 8.0,
             ),
@@ -149,47 +149,41 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
               return GestureDetector(
                 onTap: () {
                   if (_isSelectingMode) {
-                    _toggleSelection(
-                      photo,
-                    ); // Toggle selection in selection mode
+                    _toggleSelection(photo);
                   } else {
                     // TODO: Implement full screen image view on tap?
-                    // Example: Navigator.push(context, MaterialPageRoute(builder: (_) => FullScreenImageView(photo: photo)));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
+                        // !! 使用 l10n !! (需要一个新的 key)
                         content: Text(
-                          '查看大图功能待实现 - ${formatter.format(photo.dateTaken)}',
-                        ),
-                        duration: Duration(seconds: 1),
+                          l10n.viewFullScreen,
+                        ), // 假设你添加了 viewFullScreen key
+                        duration: const Duration(seconds: 1),
                       ),
                     );
                   }
                 },
                 onLongPress: () {
-                  // Use long press to enter selection mode and select first photo
                   if (!_isSelectingMode) {
                     _toggleSelection(photo);
                   }
                 },
                 child: GridTile(
                   footer: Container(
-                    // Simple footer showing date
                     padding: const EdgeInsets.symmetric(
                       horizontal: 4,
                       vertical: 2,
                     ),
                     color: Colors.black.withOpacity(0.5),
                     child: Text(
-                      formatter.format(photo.dateTaken),
+                      formatter.format(photo.dateTaken), // 日期格式通常保持不变
                       style: const TextStyle(color: Colors.white, fontSize: 10),
                       textAlign: TextAlign.center,
                     ),
                   ),
                   child: Stack(
-                    // Use Stack for selection overlay
                     fit: StackFit.expand,
                     children: [
-                      // Image
                       Image.file(
                         File(photo.filePath),
                         fit: BoxFit.cover,
@@ -202,7 +196,6 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
                               ),
                             ),
                       ),
-                      // Selection Overlay
                       if (isSelected)
                         Container(
                           color: Colors.black.withOpacity(0.5),
@@ -212,13 +205,6 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
                             size: 40,
                           ),
                         ),
-                      // Or add border for selection:
-                      // if (isSelected)
-                      //   Container(
-                      //     decoration: BoxDecoration(
-                      //       border: Border.all(color: Theme.of(context).primaryColor, width: 3)
-                      //     ),
-                      //   )
                     ],
                   ),
                 ),
@@ -227,7 +213,10 @@ class _PhotoGalleryScreenState extends ConsumerState<PhotoGalleryScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('加载照片失败: $error')),
+        // !! 使用 l10n 和占位符 !!
+        error:
+            (error, stack) =>
+                Center(child: Text(l10n.loadingFailed(error.toString()))),
       ),
     );
   }

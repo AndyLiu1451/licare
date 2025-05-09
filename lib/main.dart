@@ -5,7 +5,12 @@ import 'package:plant_pet_log/config/router/app_router.dart';
 import 'package:plant_pet_log/config/theme/app_theme.dart';
 import 'package:plant_pet_log/services/notification_service.dart'; // 引入通知服务 (如果需要在此初始化)
 import 'package:plant_pet_log/providers/theme_provider.dart'; // 引入主题相关 Provider
+import 'package:flutter_localizations/flutter_localizations.dart';
+import '../../../l10n/app_localizations.dart';
+import 'providers/theme_provider.dart';
 
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 Future<void> main() async {
   // 1. main 函数改为 async
   WidgetsFlutterBinding.ensureInitialized(); // 2. 确保 Flutter 绑定已初始化
@@ -64,12 +69,20 @@ class MyApp extends ConsumerWidget {
     // 12. 获取 GoRouter 实例 (需要传入 navigatorKey)
     final goRouter = ref.watch(goRouterProvider(navigatorKey));
 
+    final locale = ref.watch(localeNotifierProvider);
+
     // 13. (可选) 在这里初始化通知服务或执行 reschedule
     _initializeNotificationsOnce(ref); // 调用下面的辅助方法
 
     // 14. 返回 MaterialApp.router 并配置主题
     return MaterialApp.router(
-      title: '植宠日志',
+      localizationsDelegates:
+          AppLocalizations.localizationsDelegates, // Use generated list
+      supportedLocales: AppLocalizations.supportedLocales,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      locale: locale,
+      title: 'Plant & Pet Log',
+
       debugShowCheckedModeBanner: false,
 
       // !! 配置主题 !!

@@ -12,6 +12,52 @@ const String _prefThemeMode = 'themeMode'; // Store ThemeMode enum index
 //   final ThemeMode themeMode;
 //   ThemeState({required this.selectedColorIndex, required this.themeMode});
 // }
+// Provider to manage the selected Locale (can be null for system default)
+final localeNotifierProvider = StateNotifierProvider<LocaleNotifier, Locale?>((
+  ref,
+) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return LocaleNotifier(prefs);
+});
+
+const String _prefLanguageCode = 'selectedLanguageCode';
+const String _prefCountryCode = 'selectedCountryCode';
+
+class LocaleNotifier extends StateNotifier<Locale?> {
+  final SharedPreferences _prefs;
+
+  LocaleNotifier(this._prefs) : super(_loadLocale(_prefs));
+
+  static Locale? _loadLocale(SharedPreferences prefs) {
+    final String? langCode = prefs.getString(_prefLanguageCode);
+    // Country code is optional, handle null
+    final String? countryCode = prefs.getString(_prefCountryCode);
+    if (langCode != null) {
+      return Locale(
+        langCode,
+        countryCode == '' ? null : countryCode,
+      ); // Handle empty string for country code
+    }
+    return null; // Use system default
+  }
+
+  void changeLocale(Locale? newLocale) {
+    if (state != newLocale) {
+      state = newLocale;
+      if (newLocale == null) {
+        // System default
+        _prefs.remove(_prefLanguageCode);
+        _prefs.remove(_prefCountryCode);
+      } else {
+        _prefs.setString(_prefLanguageCode, newLocale.languageCode);
+        _prefs.setString(
+          _prefCountryCode,
+          newLocale.countryCode ?? '',
+        ); // Store empty string if null
+      }
+    }
+  }
+}
 
 // --- Theme Notifier ---
 class ThemeNotifier extends StateNotifier<ThemeMode> {

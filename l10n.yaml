@@ -1,0 +1,7 @@
+# l10n.yaml
+arb-dir: lib/l10n # 指定 .arb 文件所在的目录
+template-arb-file: app_en.arb # 指定模板文件 (通常是英文)
+output-localization-file: app_localizations.dart # 指定生成的 Dart 代码文件名
+output-dir: lib/l10n
+# Optional: Set untranslated messages policy if needed
+# untranslated-messages-file: lib/l10n/untranslated.txt

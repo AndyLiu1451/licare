@@ -45,6 +45,18 @@ class AppTheme {
                 ? colorScheme.onSurface
                 : colorScheme.onPrimary, // 相应的前景色
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        // <--- 设置为悬浮模式
+        // 可以添加其他 SnackBar 样式，例如边距、形状、背景色等
+        // backgroundColor: brightness == Brightness.dark ? Colors.grey[700] : Colors.grey[800], // 可选：自定义背景色
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ), // 可选：圆角
+        // floatingSnackBarTheme 需要 elevation 吗？可能不需要
+        // elevation: 4.0, // 可选：阴影
+        // contentTextStyle: TextStyle(color: Colors.white), // 可选：内容文字颜色
+      ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         // 可以根据 brightness 调整选中/未选中颜色，但 colorScheme 通常能处理好
         selectedItemColor: colorScheme.primary,
