@@ -134,8 +134,8 @@ class NotificationService {
       final bool? granted = await plugin.requestNotificationsPermission();
       print('Android Notification Permission Granted: $granted');
       // Optionally request exact alarm permission if needed
-      // final bool? exactAlarmGranted = await plugin.requestExactAlarmsPermission();
-      // print('Android Exact Alarm Permission Granted: $exactAlarmGranted');
+      final bool? exactAlarmGranted = await plugin.requestExactAlarmsPermission();
+      print('Android Exact Alarm Permission Granted: $exactAlarmGranted');
     }
   }
 
@@ -255,10 +255,10 @@ class NotificationService {
         AndroidNotificationDetails(
           'plant_pet_reminders_channel_id', // Channel ID
           'Plant & Pet Reminders', // Channel Name
-          channelDescription: '用于植物和宠物护理提醒的通知', // Channel Description
+          channelDescription: 'Notifications for plant and pet care reminders', // Channel Description
           importance: Importance.max,
           priority: Priority.high,
-          ticker: '任务提醒',
+          ticker: 'Task Reminder',
           playSound: true,
         );
 
@@ -310,7 +310,7 @@ class NotificationService {
       return reminder.notes!;
     }
     // Consider fetching Plant/Pet name if objectId/Type are available
-    return '是时候完成任务 "${reminder.taskName}" 了！';
+    return 'It''s time to complete your task: "${reminder.taskName}"!';
   }
 
   // Cancel a specific notification
