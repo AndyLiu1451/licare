@@ -168,5 +168,47 @@
   "weightRecord": "体重记录",
   "behaviorObservation": "行为观察",
   "vetVisit": "就诊",
-  "other": "其他"
+  "other": "其他",
+
+  "plantTagInList": "植",
+  "petTagInList": "宠",
+  "associatedObjectHint": "关联对象 *",
+  "associatedObjectValidationError": "请选择关联对象",
+  "deleteReminderButtonLabel": "删除提醒",
+  "reminderTaskNameLabel": "任务名称 *",
+  "reminderTaskNameHint": "例如：浇水、喂食...",
+  "reminderNextDueTimeLabel": "下次执行时间 *",
+  "reminderRepeatFrequencyLabel": "重复频率",
+  "reminderNoObjectsAvailable": "无可用对象，请先添加植物或宠物。",
+  "reminderSelectAtLeastOneWeekday": "请至少选择一个周天",
+  "reminderFreqOnce": "仅一次",
+  "reminderFreqDaily": "每天",
+  "reminderFreqWeekly": "每周",
+  "reminderFreqMonthly": "每月",
+  "reminderFreqCustom": "自定义间隔",
+  "reminderWeeklyDaysSelectorLabel": "选择星期几 *",
+  "reminderWeekdayMon": "一",
+  "reminderWeekdayTue": "二",
+  "reminderWeekdayWed": "三",
+  "reminderWeekdayThu": "四",
+  "reminderWeekdayFri": "五",
+  "reminderWeekdaySat": "六",
+  "reminderWeekdaySun": "日",
+  "reminderMonthlyDaySelectorLabel": "选择几号 *",
+  "reminderMonthlyDayItem": "{day}号",
+  "@reminderMonthlyDayItem": {
+    "placeholders": {
+      "day": {
+        "type": "int",
+        "example": "15"
+      }
+    }
+  },
+  "reminderMonthlyDayValidation": "请选择日期",
+  "reminderCustomIntervalEvery": "每 ",
+  "reminderCustomIntervalUnitDays": "天",
+  "reminderCustomIntervalUnitWeeks": "周",
+  "reminderCustomIntervalUnitMonths": "月",
+  "reminderCustomIntervalValidation": "请输入大于0的数字",
+  "reminderTaskNameValidationEmpty": "任务名称不能为空"
 }

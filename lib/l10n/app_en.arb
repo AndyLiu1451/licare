@@ -200,5 +200,47 @@
   "weightRecord": "Weight Record",
   "behaviorObservation": "Behavior Observation",
   "vetVisit": "Vet Visit",
-  "other": "Other"
+  "other": "Other",
+
+  "plantTagInList": "Plant",
+  "petTagInList": "Pet",
+  "associatedObjectHint": "Associated Object *",
+  "associatedObjectValidationError": "Please select associated object",
+  "deleteReminderButtonLabel": "Delete Reminder",
+  "reminderTaskNameLabel": "Task Name *",
+  "reminderTaskNameHint": "e.g. Watering, Feeding...",
+  "reminderNextDueTimeLabel": "Next Due Time *",
+  "reminderRepeatFrequencyLabel": "Repeat Frequency",
+  "reminderNoObjectsAvailable": "No objects available. Please add plants or pets first.",
+  "reminderSelectAtLeastOneWeekday": "Please select at least one weekday",
+  "reminderFreqOnce": "Once",
+  "reminderFreqDaily": "Daily",
+  "reminderFreqWeekly": "Weekly",
+  "reminderFreqMonthly": "Monthly",
+  "reminderFreqCustom": "Custom Interval",
+  "reminderWeeklyDaysSelectorLabel": "Select Day(s) of Week *",
+  "reminderWeekdayMon": "Mon",
+  "reminderWeekdayTue": "Tue",
+  "reminderWeekdayWed": "Wed",
+  "reminderWeekdayThu": "Thu",
+  "reminderWeekdayFri": "Fri",
+  "reminderWeekdaySat": "Sat",
+  "reminderWeekdaySun": "Sun",
+  "reminderMonthlyDaySelectorLabel": "Select Day of Month *",
+  "reminderMonthlyDayItem": "{day}",
+  "@reminderMonthlyDayItem": {
+    "placeholders": {
+      "day": {
+        "type": "int",
+        "example": "15"
+      }
+    }
+  },
+  "reminderMonthlyDayValidation": "Please select a day",
+  "reminderCustomIntervalEvery": "Every ",
+  "reminderCustomIntervalUnitDays": "days",
+  "reminderCustomIntervalUnitWeeks": "weeks",
+  "reminderCustomIntervalUnitMonths": "months",
+  "reminderCustomIntervalValidation": "Enter >0 number",
+  "reminderTaskNameValidationEmpty": "Task name cannot be empty"
 }

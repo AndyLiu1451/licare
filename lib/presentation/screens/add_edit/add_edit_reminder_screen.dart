@@ -354,14 +354,16 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             if (_cachedSelectableObjects.isNotEmpty)
               DropdownButtonFormField<SelectableObject>(
                 value: _selectedObject,
-                hint: const Text('Associated Object *'),
+                hint: Text(l10n.associatedObjectHint),
                 items:
                     _cachedSelectableObjects
                         .map(
                           (SelectableObject obj) =>
                               DropdownMenuItem<SelectableObject>(
                                 value: obj,
-                                child: Text(obj.displayName),
+                                child: Text(obj.type == ObjectType.plant 
+                                    ? "[${l10n.plantTagInList}] ${obj.name}" 
+                                    : "[${l10n.petTagInList}] ${obj.name}"),
                               ),
                         )
                         .toList(),
@@ -371,27 +373,27 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                 validator:
                     (value) =>
                         value == null
-                            ? 'Please select associated object'
+                            ? l10n.associatedObjectValidationError
                             : null,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
               )
             // Show message only if NOT loading AND objects are empty AND initial load attempt finished
             else if (!_isLoading && _initialDataLoaded)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 16.0),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
                 child: Text(
-                  "No objects available...,please add plants or pets first",
-                  style: TextStyle(color: Colors.red),
+                  l10n.reminderNoObjectsAvailable,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             const SizedBox(height: 16),
             // 2. Task Name
             TextFormField(
               controller: _taskNameController,
-              decoration: const InputDecoration(
-                labelText: 'Task Name *',
-                hintText: 'e.g. Watering, Feeding...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.reminderTaskNameLabel,
+                hintText: l10n.reminderTaskNameHint,
+                border: const OutlineInputBorder(),
               ),
               validator:
                   (value) =>
@@ -428,7 +430,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
             const SizedBox(height: 16),
             // 6. Active Status Switch
             SwitchListTile(
-              title: const Text('Activate Reminder'),
+              title: Text(_isActive ? l10n.toggleActiveOff : l10n.toggleActiveOn),
               value: _isActive,
               onChanged: (bool value) => setState(() => _isActive = value),
               secondary: Icon(
@@ -443,10 +445,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
               Center(
                 child: TextButton.icon(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  label: const Text(
-                    'Delete Reminder',
-                    style: TextStyle(color: Colors.red),
-                  ),
+                  label: Text(l10n.deleteReminderButtonLabel, style: const TextStyle(color: Colors.red)),
                   onPressed: _isSaving ? null : () => _confirmDelete(l10n),
                 ),
               ),
@@ -498,10 +497,10 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
         }
       },
       child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Next Due Time  *',
-          border: OutlineInputBorder(),
-          suffixIcon: Icon(Icons.calendar_today),
+        decoration: InputDecoration(
+          labelText: l10n.reminderNextDueTimeLabel,
+          border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.calendar_today),
         ),
         child: Text(formatter.format(_nextDueDate)),
       ),
@@ -512,28 +511,28 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
     /* ... */
     return DropdownButtonFormField<ReminderFrequency>(
       value: _selectedFrequency,
-      decoration: const InputDecoration(
-        labelText: 'Repeat Frequency',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: l10n.reminderRepeatFrequencyLabel,
+        border: const OutlineInputBorder(),
       ),
       items:
           ReminderFrequency.values.map((ReminderFrequency freq) {
             String text;
             switch (freq) {
               case ReminderFrequency.once:
-                text = 'Once';
+                text = l10n.reminderFreqOnce;
                 break;
               case ReminderFrequency.daily:
-                text = 'Daily';
+                text = l10n.reminderFreqDaily;
                 break;
               case ReminderFrequency.weekly:
-                text = 'Weekly';
+                text = l10n.reminderFreqWeekly;
                 break;
               case ReminderFrequency.monthly:
-                text = 'Monthly';
+                text = l10n.reminderFreqMonthly;
                 break;
               case ReminderFrequency.custom:
-                text = 'Custom Interval';
+                text = l10n.reminderFreqCustom;
                 break;
             }
             return DropdownMenuItem<ReminderFrequency>(
@@ -554,12 +553,20 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
 
   Widget _buildWeeklyDaySelector(AppLocalizations l10n) {
     /* ... */
-    const List<String> days = ['一', '二', '三', '四', '五', '六', '日'];
+    final List<String> days = [
+      l10n.reminderWeekdayMon,
+      l10n.reminderWeekdayTue,
+      l10n.reminderWeekdayWed,
+      l10n.reminderWeekdayThu,
+      l10n.reminderWeekdayFri,
+      l10n.reminderWeekdaySat,
+      l10n.reminderWeekdaySun,
+    ];
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: 'Select Day(s) of Week  *',
+          labelText: l10n.reminderWeeklyDaysSelectorLabel,
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(
             vertical: 0,
@@ -602,28 +609,25 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       padding: const EdgeInsets.only(top: 8.0),
       child: DropdownButtonFormField<int>(
         value: _monthlyDay,
-        // TODO: Add key for 'Select Day of Month *'
-        decoration: const InputDecoration(
-          labelText: 'Select Day of Month  *',
-          border: OutlineInputBorder(),
-        ), // !! (需要添加 key) !!
+        decoration: InputDecoration(
+          labelText: l10n.reminderMonthlyDaySelectorLabel,
+          border: const OutlineInputBorder(),
+        ), 
         items:
             List<int>.generate(31, (i) => i + 1).map((int day) {
-              // TODO: Add key for '{day}th' / 'Day {day}'
               return DropdownMenuItem<int>(
                 value: day,
-                child: Text('$day 号'),
-              ); // !! (需要添加 key/格式化) !!
+                child: Text(l10n.reminderMonthlyDayItem(day)),
+              ); 
             }).toList(),
         onChanged:
             (int? newValue) => setState(() => _monthlyDay = newValue ?? 1),
-        // TODO: Add key for 'Please select a day'
         validator:
             (value) =>
                 (_selectedFrequency == ReminderFrequency.monthly &&
                         value == null)
-                    ? 'Please select a day'
-                    : null, // !! (需要添加 key) !!
+                    ? l10n.reminderMonthlyDayValidation
+                    : null, 
       ),
     );
   }
@@ -635,9 +639,9 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 15.0),
-            child: Text("Every "),
+          Padding(
+            padding: const EdgeInsets.only(top: 15.0),
+            child: Text(l10n.reminderCustomIntervalEvery),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -659,7 +663,7 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                       value.isEmpty ||
                       int.tryParse(value) == null ||
                       int.parse(value) < 1) {
-                    return 'Enter >0 number';
+                    return l10n.reminderCustomIntervalValidation;
                   }
                 }
                 return null;
@@ -683,16 +687,16 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
                     String text;
                     switch (unit) {
                       case 'days':
-                        text = 'days';
+                        text = l10n.reminderCustomIntervalUnitDays;
                         break;
                       case 'weeks':
-                        text = 'weeks';
+                        text = l10n.reminderCustomIntervalUnitWeeks;
                         break;
                       case 'months':
-                        text = 'months';
+                        text = l10n.reminderCustomIntervalUnitMonths;
                         break;
                       default:
-                        text = unit;
+                        text = unit; // Should not happen
                     }
                     return DropdownMenuItem<String>(
                       value: unit,
@@ -821,8 +825,8 @@ class _AddEditReminderScreenState extends ConsumerState<AddEditReminderScreen> {
       if (_selectedFrequency == ReminderFrequency.weekly &&
           !_weeklyDaysSelected.contains(true)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select at least one weekday'),
+          SnackBar(
+            content: Text(l10n.reminderSelectAtLeastOneWeekday),
             backgroundColor: Colors.red,
           ),
         );

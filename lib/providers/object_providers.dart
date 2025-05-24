@@ -479,7 +479,4 @@ class SelectableObject {
   final ObjectType type;
 
   SelectableObject({required this.id, required this.name, required this.type});
-
-  // 用于 DropdownMenuItem 的显示
-  String get displayName => '${type == ObjectType.plant ? "[植]" : "[宠]"} $name';
 }
